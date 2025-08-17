@@ -4,7 +4,7 @@ on:
     branches: [ main ]
 
 permissions:
-  id-token: write   # <= REQUIRED for OIDC
+  id-token: write
   contents: read
 
 jobs:
@@ -12,6 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Debug GitHub context   # 👈 Debug step
+        run: |
+          echo "repo=${{ github.repository }}"
+          echo "ref=${{ github.ref }}"
 
       - uses: actions/setup-node@v4
         with:
@@ -23,11 +28,11 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::397570188272:role/github-oidc-deploy
+          role-to-assume: arn:aws:iam::<YOUR_ACCOUNT_ID>:role/github-oidc-deploy
           aws-region: us-east-1
 
       - name: Upload to S3
         run: aws s3 sync dist/ s3://pickle.kyle-white.com --delete
 
       - name: Invalidate CloudFront
-        run: aws cloudfront create-invalidation --distribution-id E3MBOAEFHOHU4 --paths "/*"
+        run: aws cloudfront create-invalidation --distribution-id <YOUR_DISTRIBUTION_ID> --paths "/*"
