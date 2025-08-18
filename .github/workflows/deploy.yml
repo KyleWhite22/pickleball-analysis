@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: client      # run npm in client/
+        working-directory: .      
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
