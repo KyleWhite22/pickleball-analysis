@@ -8,39 +8,41 @@ permissions:
   contents: read
 
 env:
-  SOURCE_DIR: .                      
-  BUCKET: pickle.kyle-white.com   
-  DIST_ID: E3MBOAEFHOHU4            
+  BUCKET: pickle.kyle-white.com
+  DIST_ID: E3MBOAEFHOHU4
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client      # run npm in client/
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - run: npm run build
 
-      # Sanity check the path
-      - name: List files
-        run: |
-          echo "pwd=$(pwd)"
-          ls -la
-          echo "---- listing $SOURCE_DIR ----"
-          ls -la "$SOURCE_DIR"
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::397570188272:role/github-oidc-deploy
           aws-region: us-east-1
 
-      - name: Sync assets (long cache)
+      # (optional) clean any old /src/* uploaded by mistake
+      - run: aws s3 rm s3://$BUCKET/src --recursive || true
+
+      # Long-cache all built assets except index.html
+      - name: Sync assets
         run: |
-          aws s3 sync "$SOURCE_DIR"/ s3://$BUCKET --delete \
+          aws s3 sync dist/ s3://$BUCKET --delete \
             --exclude "index.html" \
             --cache-control "public,max-age=31536000,immutable"
 
-      - name: Upload index.html (no cache)
+      # No-cache index.html so changes appear immediately
+      - name: Upload index.html
         run: |
-          aws s3 cp "$SOURCE_DIR"/index.html s3://$BUCKET/index.html \
+          aws s3 cp dist/index.html s3://$BUCKET/index.html \
             --cache-control "no-cache" --content-type "text/html"
 
       - name: Invalidate CloudFront
