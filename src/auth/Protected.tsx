@@ -2,23 +2,30 @@ import { useEffect, useState } from "react";
 import { fetchAuthSession, signInWithRedirect } from "aws-amplify/auth";
 
 export default function Protected({ children }: { children: React.ReactNode }) {
-  const [ok, setOk] = useState(false);
+  const [status, setStatus] = useState<"checking" | "ok">("checking");
 
   useEffect(() => {
     (async () => {
       try {
-        const session = await fetchAuthSession();
-        if (!session.tokens?.accessToken) {
-          await signInWithRedirect();
-        } else {
-          setOk(true);
-        }
-      } catch (err) {
-        console.error("Auth error:", err);
+        const s = await fetchAuthSession();
+        if (s.tokens?.accessToken) setStatus("ok");
+        else await signInWithRedirect();
+      } catch {
         await signInWithRedirect();
       }
     })();
   }, []);
 
-  return ok ? <>{children}</> : null;
+  if (status === "checking") {
+    return (
+      <div className="min-h-screen grid place-items-center">
+        <div className="flex items-center gap-3 text-gray-600">
+          <span className="animate-spin h-5 w-5 rounded-full border-2 border-gray-300 border-t-transparent inline-block" />
+          <span>Checking your session…</span>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 }

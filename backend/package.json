@@ -1,0 +1,19 @@
+{
+  "name": "pickle-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "serverless deploy",
+    "remove": "serverless remove"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.629.0",
+    "@aws-sdk/lib-dynamodb": "^3.629.0",
+    "aws-sdk": "^2.1602.0",
+    "serverless": "^3.39.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.9",
+    "serverless-esbuild": "^1.55.1"
+  }
+}

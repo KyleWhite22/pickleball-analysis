@@ -1,0 +1,79 @@
+service: pickle-api
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-2
+  deploymentBucket:
+    name: serverless-deploy-397570188272-us-east-2   # your precreated bucket
+    serverSideEncryption: AES256
+
+  httpApi:
+    cors:
+      allowedOrigins:
+        - http://localhost:5173
+        - https://pickle.kyle-white.com
+      allowedHeaders:
+        - Authorization
+        - Content-Type
+      allowedMethods:
+        - GET
+        - POST
+        - OPTIONS
+      allowCredentials: false
+    authorizers:
+      cognitoAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: https://cognito-idp.us-east-2.amazonaws.com/us-east-2_wvWmECk8W   # 👈 your User Pool ID
+        audience:
+          - 5srl4gktjb9bvkm3np3n32c1ld                                                # 👈 your App Client ID
+
+custom:
+  tableName: ${self:service}-table-${sls:stage}
+
+functions:
+  postMatches:
+    handler: src/matches.handler
+    events:
+      - httpApi:
+          path: /matches
+          method: POST
+          authorizer:
+            name: cognitoAuthorizer
+
+  getStandings:
+    handler: src/standings.handler
+    events:
+      - httpApi:
+          path: /standings
+          method: GET
+          authorizer:
+            name: cognitoAuthorizer
+
+resources:
+  Resources:
+    PickleTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tableName}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - { AttributeName: PK, AttributeType: S }
+          - { AttributeName: SK, AttributeType: S }
+        KeySchema:
+          - { AttributeName: PK, KeyType: HASH }
+          - { AttributeName: SK, KeyType: RANGE }
+
+plugins:
+  - serverless-esbuild
+
+package:
+  individually: true
+
+outputs:
+  ApiUrl:
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  TableName:
+    Value: ${self:custom.tableName}

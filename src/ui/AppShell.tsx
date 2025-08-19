@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
-import { fetchAuthSession, signOut } from 'aws-amplify/auth';
+import { useEffect, useState } from "react";
+import { NavLink, Outlet } from "react-router-dom";
+import { fetchAuthSession, signOut } from "aws-amplify/auth";
 
 export default function AppShell() {
   const [email, setEmail] = useState<string | null>(null);
@@ -17,6 +17,14 @@ export default function AppShell() {
     })();
   }, []);
 
+  async function handleSignOut() {
+    try {
+      await signOut();               // clears local session + calls hosted sign-out
+    } finally {
+      window.location.href = "/";    // ensure we land on a valid path afterwards
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
       <header className="bg-white shadow p-4 flex justify-between items-center">
@@ -28,16 +36,14 @@ export default function AppShell() {
         </nav>
         <div className="flex items-center gap-3">
           {email && <span className="text-sm opacity-75">{email}</span>}
-          <button onClick={() => signOut()} className="text-sm text-red-600 hover:underline">
+          <button onClick={handleSignOut} className="text-sm text-red-600 hover:underline">
             Sign Out
           </button>
         </div>
       </header>
-
       <main className="flex-1 p-6">
         <Outlet />
       </main>
-
       <footer className="bg-gray-200 text-center text-sm p-2">
         © {new Date().getFullYear()} Pickle Stats
       </footer>
