@@ -27,6 +27,9 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::397570188272:role/github-oidc-deploy
           aws-region: us-east-2
-
+      - name: Who am I?
+        run: |
+          aws sts get-caller-identity
+          aws s3api head-bucket --bucket serverless-deploy-397570188272-us-east-2 --region us-east-2
       - name: Deploy with Serverless (prod)
         run: npx serverless deploy --stage prod --verbose --config serverless.yml

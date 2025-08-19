@@ -23,4 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
+.envbackend/node_modules/
+backend/.serverless/
+backend/.webpack/
 .env
