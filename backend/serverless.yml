@@ -68,7 +68,7 @@ functions:
     handler: src/standings.handler
     events:
       - httpApi:
-          path: /standings
+          path: /standings-public
           method: GET
 
 resources:
