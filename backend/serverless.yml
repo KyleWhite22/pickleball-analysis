@@ -5,10 +5,29 @@ provider:
   name: aws
   runtime: nodejs20.x
   region: us-east-2
+  stage: ${opt:stage, 'dev'}
+
   deploymentBucket:
-    name: serverless-deploy-397570188272-us-east-2   # your precreated bucket
+    name: serverless-deploy-397570188272-us-east-2
     serverSideEncryption: AES256
 
+  environment:
+    TABLE_NAME: ${self:custom.tableName}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:UpdateItem
+            - dynamodb:Scan
+          Resource:
+            - arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:custom.tableName}
+
+  # ✅ httpApi MUST live under provider.httpApi
   httpApi:
     cors:
       allowedOrigins:
@@ -25,10 +44,12 @@ provider:
     authorizers:
       cognitoAuthorizer:
         type: jwt
-        identitySource: $request.header.Authorization
-        issuerUrl: https://cognito-idp.us-east-2.amazonaws.com/us-east-2_wvWmECk8W   # 👈 your User Pool ID
+        identitySource: '$request.header.Authorization'
+        # 👇 issuer MUST be pool endpoint (not Hosted UI)
+        issuerUrl: https://cognito-idp.us-east-2.amazonaws.com/us-east-2_wvWmECk8W
+        # 👇 audience MUST include your App Client ID (PickleballSPA)
         audience:
-          - 5srl4gktjb9bvkm3np3n32c1ld                                                # 👈 your App Client ID
+          - 5srl4gktjb9bvkm3np3n32c1ld
 
 custom:
   tableName: ${self:service}-table-${sls:stage}
@@ -49,8 +70,6 @@ functions:
       - httpApi:
           path: /standings
           method: GET
-          authorizer:
-            name: cognitoAuthorizer
 
 resources:
   Resources:

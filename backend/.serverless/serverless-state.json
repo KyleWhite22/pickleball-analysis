@@ -8,7 +8,28 @@
       "name": "aws",
       "runtime": "nodejs20.x",
       "region": "us-east-2",
+      "stage": "prod",
       "deploymentBucket": "serverless-deploy-397570188272-us-east-2",
+      "environment": {
+        "TABLE_NAME": "pickle-api-table-prod"
+      },
+      "iam": {
+        "role": {
+          "statements": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "dynamodb:PutItem",
+                "dynamodb:GetItem",
+                "dynamodb:Query",
+                "dynamodb:UpdateItem",
+                "dynamodb:Scan"
+              ],
+              "Resource": "arn:aws:dynamodb:us-east-2:397570188272:table/pickle-api-table-prod"
+            }
+          ]
+        }
+      },
       "httpApi": {
         "cors": {
           "allowedOrigins": [
@@ -35,7 +56,6 @@
           }
         }
       },
-      "stage": "dev",
       "versionFunctions": true,
       "deploymentBucketObject": {
         "name": "serverless-deploy-397570188272-us-east-2",
@@ -114,6 +134,9 @@
                             "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/pickle-api-prod*:*:*"
                           }
                         ]
+                      },
+                      {
+                        "$ref": "$[\"service\"][\"provider\"][\"iam\"][\"role\"][\"statements\"][0]"
                       }
                     ]
                   }
@@ -140,13 +163,18 @@
             "Properties": {
               "Code": {
                 "S3Bucket": "serverless-deploy-397570188272-us-east-2",
-                "S3Key": "serverless/pickle-api/prod/1755636920701-2025-08-19T20:55:20.701Z/postMatches.zip"
+                "S3Key": "serverless/pickle-api/prod/1755638550625-2025-08-19T21:22:30.625Z/postMatches.zip"
               },
               "Handler": "src/matches.handler",
               "Runtime": "nodejs20.x",
               "FunctionName": "pickle-api-prod-postMatches",
               "MemorySize": 1024,
               "Timeout": 6,
+              "Environment": {
+                "Variables": {
+                  "TABLE_NAME": "pickle-api-table-prod"
+                }
+              },
               "Role": {
                 "Fn::GetAtt": [
                   "IamRoleLambdaExecution",
@@ -163,13 +191,18 @@
             "Properties": {
               "Code": {
                 "S3Bucket": "serverless-deploy-397570188272-us-east-2",
-                "S3Key": "serverless/pickle-api/prod/1755636920701-2025-08-19T20:55:20.701Z/getStandings.zip"
+                "S3Key": "serverless/pickle-api/prod/1755638550625-2025-08-19T21:22:30.625Z/getStandings.zip"
               },
               "Handler": "src/standings.handler",
               "Runtime": "nodejs20.x",
               "FunctionName": "pickle-api-prod-getStandings",
               "MemorySize": 1024,
               "Timeout": 6,
+              "Environment": {
+                "Variables": {
+                  "TABLE_NAME": "pickle-api-table-prod"
+                }
+              },
               "Role": {
                 "Fn::GetAtt": [
                   "IamRoleLambdaExecution",
@@ -181,7 +214,7 @@
               "GetStandingsLogGroup"
             ]
           },
-          "GetStandingsLambdaVersiontpOmb4bhJPnqLpqMHqu0IEXXpq4kMGv0ZbMQHeFCs": {
+          "GetStandingsLambdaVersion3jaBCHItQLG90yKlUHf4ssUHvHkhAdIpQi3DHRnQg": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
@@ -191,14 +224,14 @@
               "CodeSha256": "Ank15KJDnnxzGJxHICq1IcxZvqwrWb2whV6LZBfup+8="
             }
           },
-          "PostMatchesLambdaVersionOxBfGrPASuNfN6Pu4dMD7By7wetbC6ZNXUsfH3ZglVo": {
+          "PostMatchesLambdaVersionA5XSqkHeP3MqbjY1fAOoP4nytuPdOhW9S4LIqV4UrD4": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "PostMatchesLambdaFunction"
               },
-              "CodeSha256": "ultsDxIlqUppik8UIQ+gr76jzq7qJPxxXctTp6Gj3cg="
+              "CodeSha256": "KGk+VAfEc+KA4hdL8ztmbs3cRnL4BMWOvm8AkGi5Lw0="
             }
           },
           "HttpApi": {
@@ -399,10 +432,6 @@
                     }
                   ]
                 ]
-              },
-              "AuthorizationType": "JWT",
-              "AuthorizerId": {
-                "Ref": "HttpApiAuthorizerCognitoAuthorizer"
               }
             },
             "DependsOn": "HttpApiIntegrationGetStandings"
@@ -445,7 +474,7 @@
           "GetStandingsLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "GetStandingsLambdaVersiontpOmb4bhJPnqLpqMHqu0IEXXpq4kMGv0ZbMQHeFCs"
+              "Ref": "GetStandingsLambdaVersion3jaBCHItQLG90yKlUHf4ssUHvHkhAdIpQi3DHRnQg"
             },
             "Export": {
               "Name": "sls-pickle-api-prod-GetStandingsLambdaFunctionQualifiedArn"
@@ -454,7 +483,7 @@
           "PostMatchesLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "PostMatchesLambdaVersionOxBfGrPASuNfN6Pu4dMD7By7wetbC6ZNXUsfH3ZglVo"
+              "Ref": "PostMatchesLambdaVersionA5XSqkHeP3MqbjY1fAOoP4nytuPdOhW9S4LIqV4UrD4"
             },
             "Export": {
               "Name": "sls-pickle-api-prod-PostMatchesLambdaFunctionQualifiedArn"
@@ -529,7 +558,7 @@
         "timeout": 6,
         "runtime": "nodejs20.x",
         "vpc": {},
-        "versionLogicalId": "PostMatchesLambdaVersionOxBfGrPASuNfN6Pu4dMD7By7wetbC6ZNXUsfH3ZglVo"
+        "versionLogicalId": "PostMatchesLambdaVersionA5XSqkHeP3MqbjY1fAOoP4nytuPdOhW9S4LIqV4UrD4"
       },
       "getStandings": {
         "handler": "src/standings.handler",
@@ -537,10 +566,7 @@
           {
             "httpApi": {
               "path": "/standings",
-              "method": "GET",
-              "authorizer": {
-                "name": "cognitoAuthorizer"
-              }
+              "method": "GET"
             },
             "resolvedMethod": "GET",
             "resolvedPath": "/standings"
@@ -554,7 +580,7 @@
         "timeout": 6,
         "runtime": "nodejs20.x",
         "vpc": {},
-        "versionLogicalId": "GetStandingsLambdaVersiontpOmb4bhJPnqLpqMHqu0IEXXpq4kMGv0ZbMQHeFCs"
+        "versionLogicalId": "GetStandingsLambdaVersion3jaBCHItQLG90yKlUHf4ssUHvHkhAdIpQi3DHRnQg"
       }
     },
     "resources": {
@@ -633,7 +659,7 @@
   },
   "package": {
     "individually": true,
-    "artifactDirectoryName": "serverless/pickle-api/prod/1755636920701-2025-08-19T20:55:20.701Z",
+    "artifactDirectoryName": "serverless/pickle-api/prod/1755638550625-2025-08-19T21:22:30.625Z",
     "artifact": ""
   }
 }
