@@ -5,12 +5,18 @@ import Home from './pages/Home';
 import LogMatch from './pages/LogMatch';
 import Metrics from './pages/Metrics';
 import Protected from './auth/Protected';
+import AuthCallback from './pages/AuthCallback';
 
 const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
+  { path: '/auth/callback', element: <AuthCallback /> },
   {
     path: '/',
-    element: <Protected><AppShell /></Protected>,
+    element: (
+      <Protected>
+        <AppShell />
+      </Protected>
+    ),
     children: [
       { index: true, element: <Home /> },
       { path: 'matches/new', element: <LogMatch /> },

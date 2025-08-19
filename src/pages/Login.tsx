@@ -1,20 +1,11 @@
-import { signInWithRedirect, fetchAuthSession } from 'aws-amplify/auth';
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { signInWithRedirect } from 'aws-amplify/auth';
 
-export default function LoginPage() {
-  const nav = useNavigate();
-  useEffect(() => {
-    (async () => {
-      const s = await fetchAuthSession();
-      if (s.tokens?.accessToken) nav('/');
-    })();
-  }, []);
+export default function Login() {
   return (
-    <section className="center">
-      <h1>Welcome</h1>
-      <p>Sign in to log and track your pickleball matches.</p>
-      <button onClick={() => signInWithRedirect()}>Sign in</button>
-    </section>
+    <div style={{ padding: 24, fontFamily: 'system-ui' }}>
+      <h1>Login</h1>
+      <p>If you see this, the router is working.</p>
+      <button onClick={() => signInWithRedirect()}>Sign in (Hosted UI)</button>
+    </div>
   );
 }
