@@ -7,10 +7,6 @@ provider:
   region: us-east-2
   stage: ${opt:stage, 'dev'}
 
-  deploymentBucket:
-    name: serverless-deploy-397570188272-us-east-2
-    serverSideEncryption: AES256
-
   environment:
     TABLE_NAME: ${self:custom.tableName}
 
