@@ -4,37 +4,29 @@ on:
   push:
     branches: [ main ]
     paths:
-      - "backend/**"
-
-permissions:
-  id-token: write
-  contents: read
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./backend
+        working-directory: backend
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
 
-      - run: npm ci
-
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::397570188272:role/github-oidc-deploy
           aws-region: us-east-2
-      - name: Who am I?
-        run: |
-          aws sts get-caller-identity
-          aws s3api head-bucket --bucket serverless-deploy-397570188272-us-east-2 --region us-east-2
-      - name: S3 can I read/write?
-        run: |
-          echo hi > t.txt
-          aws s3 cp t.txt s3://serverless-deploy-397570188272-us-east-2/ci-probe/t.txt
-          aws s3 ls s3://serverless-deploy-397570188272-us-east-2/ci-probe/
-      - name: Deploy with Serverless (prod)
-        run: SLS_DEBUG='*' npx serverless deploy --stage prod --verbose --config serverless.yml
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Deploy prod
+        run: npx serverless deploy --stage prod

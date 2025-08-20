@@ -1,7 +1,7 @@
 {
   "name": "pickle-backend",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "deploy": "serverless deploy",
     "remove": "serverless remove"

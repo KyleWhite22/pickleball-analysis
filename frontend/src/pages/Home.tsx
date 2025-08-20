@@ -90,19 +90,20 @@ export default function Home() {
   }
 
   async function onCreateLeague() {
-    if (!token || !newLeagueName.trim()) return;
-    try {
-      setCreating(true);
-      const created = await api.createLeague(newLeagueName.trim(), token);
-      setNewLeagueName("");
-      setCreating(false);
-      await refreshLeagues(token);
-      setSelectedLeagueId(created.id); // jump to the new league
-    } catch (e) {
-      console.error(e);
-      setCreating(false);
-    }
+  if (!newLeagueName.trim()) return;               // only require name for now
+  try {
+    setCreating(true);
+    const created = await api.createLeague(newLeagueName.trim());  // no token
+    setNewLeagueName("");
+    await refreshLeagues(token ?? "");
+    setSelectedLeagueId(created.id);
+  } catch (e) {
+    console.error(e);
+    // optional: show a toast / error message in UI
+  } finally {
+    setCreating(false);
   }
+}
 
   async function onSubmitMatch(e: React.FormEvent) {
     e.preventDefault();

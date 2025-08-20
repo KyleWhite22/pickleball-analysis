@@ -1,37 +1,15 @@
 service: pickle-api
-frameworkVersion: '3'
 
 provider:
   name: aws
   runtime: nodejs20.x
   region: us-east-2
   stage: ${opt:stage, 'dev'}
-  
-  deploymentBucket:
-    name: serverless-deploy-397570188272-us-east-2
-    serverSideEncryption: AES256
-
-  environment:
-    TABLE_NAME:  ${self:custom.tableName}
-
-  iam:
-    role:
-      statements:
-        - Effect: Allow
-          Action:
-            - dynamodb:PutItem
-            - dynamodb:GetItem
-            - dynamodb:Query
-            - dynamodb:UpdateItem
-            - dynamodb:Scan
-          Resource:
-            - arn:aws:dynamodb:us-east-2:*:table/Pickleball
-
   httpApi:
     cors:
       allowedOrigins:
-        - http://localhost:5173     # local dev
-        - https://pickle.kyle-white.com  # prod site
+        - http://localhost:5173
+        - https://pickle.kyle-white.com
       allowedHeaders:
         - Authorization
         - Content-Type
@@ -39,76 +17,44 @@ provider:
         - GET
         - POST
         - OPTIONS
-      allowCredentials: false
-    authorizers:
-      cognitoAuthorizer:
-        type: jwt
-        identitySource: '$request.header.Authorization'
-        issuerUrl: https://cognito-idp.us-east-2.amazonaws.com/us-east-2_wvWmECk8W
-        audience:
-          - 5srl4gktjb9bvkm3np3n32c1ld
-
-custom:
-  tableName: ${self:service}-table-${sls:stage}
 
 functions:
   listLeagues:
-    handler: src/leagues.list.handler
+    handler: src/leagues_list.handler
     events:
       - httpApi:
           path: /leagues
           method: GET
 
   createLeague:
-    handler: src/leagues.create.handler
+    handler: src/leagues_create.handler
     events:
       - httpApi:
           path: /leagues
           method: POST
 
   listMatches:
-    handler: src/matches.list.handler
+    handler: src/matches_list.handler
     events:
       - httpApi:
           path: /leagues/{id}/matches
           method: GET
 
   createMatch:
-    handler: src/matches.create.handler
+    handler: src/matches_create.handler
     events:
       - httpApi:
           path: /leagues/{id}/matches
           method: POST
 
   getMetrics:
-    handler: src/metrics.get.handler
+    handler: src/metrics_get.handler
     events:
       - httpApi:
           path: /leagues/{id}/metrics
           method: GET
 
-resources:
-  Resources:
-    PickleTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: ${self:custom.tableName}
-        BillingMode: PAY_PER_REQUEST
-        AttributeDefinitions:
-          - { AttributeName: PK, AttributeType: S }
-          - { AttributeName: SK, AttributeType: S }
-        KeySchema:
-          - { AttributeName: PK, KeyType: HASH }
-          - { AttributeName: SK, KeyType: RANGE }
-
-plugins:
-  - serverless-esbuild
-
 package:
-  individually: true
-
-outputs:
-  ApiUrl:
-    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
-  TableName:
-    Value: ${self:custom.tableName}
+  patterns:
+    - src/**
+    - '!node_modules/**'
