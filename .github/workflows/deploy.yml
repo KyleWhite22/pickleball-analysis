@@ -1,7 +1,11 @@
-name: Deploy Pickle
+name: Deploy Pickle (Frontend)
+
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy.yml
 
 permissions:
   id-token: write
@@ -9,28 +13,47 @@ permissions:
 
 env:
   BUCKET: pickle.kyle-white.com
-  DIST_ID: E3MBOAEFHOHU4
+  DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}   # <— optional, safer
+
+concurrency:
+  group: frontend-deploy
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: .      
+        working-directory: frontend
+
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm ci
-      - run: npm run build
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify build
+        run: test -f dist/index.html
+
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::397570188272:role/github-oidc-deploy
-          aws-region: us-east-1
+          aws-region: us-east-2   # <— set to your S3 bucket’s region
 
-      # (optional) clean any old /src/* uploaded by mistake
-      - run: aws s3 rm s3://$BUCKET/src --recursive || true
+      # (optional) clean any stray uploads
+      - name: Clean accidental /src
+        run: aws s3 rm s3://$BUCKET/src --recursive || true
 
       # Long-cache all built assets except index.html
       - name: Sync assets
@@ -39,11 +62,11 @@ jobs:
             --exclude "index.html" \
             --cache-control "public,max-age=31536000,immutable"
 
-      # No-cache index.html so changes appear immediately
+      # No-cache index.html so users see changes immediately
       - name: Upload index.html
         run: |
           aws s3 cp dist/index.html s3://$BUCKET/index.html \
             --cache-control "no-cache" --content-type "text/html"
 
       - name: Invalidate CloudFront
-        run: aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"
+        run: aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
