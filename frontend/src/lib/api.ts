@@ -1,25 +1,41 @@
-import { fetchAuthSession } from "aws-amplify/auth";
+const API_BASE = import.meta.env.VITE_API_URL;
 
-export async function getAccessToken(): Promise<string | null> {
-  const s = await fetchAuthSession();
-  return s.tokens?.accessToken?.toString() ?? null;
+function authHeader(token?: string) {
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function api(
-  path: string,
-  init: RequestInit = {},
-  baseUrl = import.meta.env.VITE_API_URL // e.g. "https://abc123.execute-api.us-east-2.amazonaws.com/prod"
-) {
-  const token = await getAccessToken();
-  if (!token) throw new Error("Not authenticated");
-
-  return fetch(`${baseUrl}${path}`, {
-    ...init,
-    headers: {
-      ...(init.headers || {}),
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    credentials: "omit", // we use JWT, not cookies
-  });
-}
+export const api = {
+  async leagues(token?: string) {
+    const r = await fetch(`${API_BASE}/leagues`, { headers: { ...authHeader(token) } });
+    if (!r.ok) throw new Error("Failed leagues");
+    return r.json();
+  },
+  async createLeague(name: string, token?: string) {
+    const r = await fetch(`${API_BASE}/leagues`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeader(token) },
+      body: JSON.stringify({ name })
+    });
+    if (!r.ok) throw new Error("Failed create league");
+    return r.json();
+  },
+  async metrics(leagueId: string, token?: string) {
+    const r = await fetch(`${API_BASE}/leagues/${leagueId}/metrics`, { headers: { ...authHeader(token) } });
+    if (!r.ok) throw new Error("Failed metrics");
+    return r.json();
+  },
+  async listMatches(leagueId: string, token?: string) {
+    const r = await fetch(`${API_BASE}/leagues/${leagueId}/matches`, { headers: { ...authHeader(token) } });
+    if (!r.ok) throw new Error("Failed list matches");
+    return r.json();
+  },
+  async postMatch(leagueId: string, payload: any, token?: string) {
+    const r = await fetch(`${API_BASE}/leagues/${leagueId}/matches`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeader(token) },
+      body: JSON.stringify(payload)
+    });
+    if (!r.ok) throw new Error("Failed post match");
+    return r.json();
+  }
+};

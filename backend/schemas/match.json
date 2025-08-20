@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "required": ["players", "scores"],
+  "additionalProperties": true,
+  "properties": {
+    "date": { "type": "string" },
+    "players": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["name","team"],
+        "properties": { "name": { "type":"string" }, "team": { "type":"string","enum":["A","B"] } }
+      }
+    },
+    "scores": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type":"object","required":["a","b"],"properties":{"a":{"type":"integer"},"b":{"type":"integer"}} }
+    },
+    "idempotencyKey": { "type":"string" }
+  }
+}

@@ -6,15 +6,13 @@ provider:
   runtime: nodejs20.x
   region: us-east-2
   stage: ${opt:stage, 'dev'}
-
-  environment:
-    TABLE_NAME: ${self:custom.tableName}
-  
   
   deploymentBucket:
     name: serverless-deploy-397570188272-us-east-2
     serverSideEncryption: AES256
 
+  environment:
+    TABLE_NAME:  ${self:custom.tableName}
 
   iam:
     role:
@@ -27,14 +25,13 @@ provider:
             - dynamodb:UpdateItem
             - dynamodb:Scan
           Resource:
-            - arn:aws:dynamodb:${self:provider.region}:${aws:accountId}:table/${self:custom.tableName}
+            - arn:aws:dynamodb:us-east-2:*:table/Pickleball
 
-  # ✅ httpApi MUST live under provider.httpApi
   httpApi:
     cors:
       allowedOrigins:
-        - http://localhost:5173
-        - https://pickle.kyle-white.com
+        - http://localhost:5173     # local dev
+        - https://pickle.kyle-white.com  # prod site
       allowedHeaders:
         - Authorization
         - Content-Type
@@ -47,9 +44,7 @@ provider:
       cognitoAuthorizer:
         type: jwt
         identitySource: '$request.header.Authorization'
-        # 👇 issuer MUST be pool endpoint (not Hosted UI)
         issuerUrl: https://cognito-idp.us-east-2.amazonaws.com/us-east-2_wvWmECk8W
-        # 👇 audience MUST include your App Client ID (PickleballSPA)
         audience:
           - 5srl4gktjb9bvkm3np3n32c1ld
 
@@ -57,20 +52,39 @@ custom:
   tableName: ${self:service}-table-${sls:stage}
 
 functions:
-  postMatches:
-    handler: src/matches.handler
+  listLeagues:
+    handler: src/leagues.list.handler
     events:
       - httpApi:
-          path: /matches
-          method: POST
-          authorizer:
-            name: cognitoAuthorizer
+          path: /leagues
+          method: GET
 
-  getStandings:
-    handler: src/standings.handler
+  createLeague:
+    handler: src/leagues.create.handler
     events:
       - httpApi:
-          path: /standings
+          path: /leagues
+          method: POST
+
+  listMatches:
+    handler: src/matches.list.handler
+    events:
+      - httpApi:
+          path: /leagues/{id}/matches
+          method: GET
+
+  createMatch:
+    handler: src/matches.create.handler
+    events:
+      - httpApi:
+          path: /leagues/{id}/matches
+          method: POST
+
+  getMetrics:
+    handler: src/metrics.get.handler
+    events:
+      - httpApi:
+          path: /leagues/{id}/metrics
           method: GET
 
 resources:
