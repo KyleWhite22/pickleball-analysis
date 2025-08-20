@@ -58,3 +58,38 @@ package:
   patterns:
     - src/**
     - '!node_modules/**'
+
+resources:
+  Conditions:
+    IsProd: !Equals [${sls:stage}, "prod"]
+
+  Resources:
+    ApiCustomDomain:
+      Type: AWS::ApiGatewayV2::DomainName
+      Condition: IsProd
+      Properties:
+        DomainName: api.pickle.kyle-white.com
+        DomainNameConfigurations:
+          - CertificateArn: arn:aws:acm:us-east-2:YOUR_ACCT:certificate/YOUR-CERT-ID
+            EndpointType: REGIONAL
+            SecurityPolicy: TLS_1_2
+
+    ApiApiMapping:
+      Type: AWS::ApiGatewayV2::ApiMapping
+      Condition: IsProd
+      Properties:
+        ApiId: !Ref HttpApi        # Serverless-created HTTP API
+        DomainName: api.pickle.kyle-white.com
+        Stage: ${sls:stage}        # "prod" → root path of the domain
+
+    # Optional Route53 alias (if your hosted zone is in Route 53)
+    ApiDomainRecord:
+      Type: AWS::Route53::RecordSet
+      Condition: IsProd
+      Properties:
+        HostedZoneName: pickle.kyle-white.com.
+        Name: api.pickle.kyle-white.com
+        Type: A
+        AliasTarget:
+          DNSName: !GetAtt ApiCustomDomain.RegionalDomainName
+          HostedZoneId: !GetAtt ApiCustomDomain.RegionalHostedZoneId
