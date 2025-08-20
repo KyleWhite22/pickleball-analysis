@@ -10,9 +10,11 @@ provider:
   environment:
     TABLE_NAME: ${self:custom.tableName}
   
-  provider:
-    deploymentBucket:
-      name: serverless-deploy-397570188272-us-east-2
+  
+  deploymentBucket:
+    name: serverless-deploy-397570188272-us-east-2
+    serverSideEncryption: AES256
+
 
   iam:
     role:

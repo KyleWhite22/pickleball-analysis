@@ -31,5 +31,10 @@ jobs:
         run: |
           aws sts get-caller-identity
           aws s3api head-bucket --bucket serverless-deploy-397570188272-us-east-2 --region us-east-2
+      - name: S3 can I read/write?
+        run: |
+          echo hi > t.txt
+          aws s3 cp t.txt s3://serverless-deploy-397570188272-us-east-2/ci-probe/t.txt
+          aws s3 ls s3://serverless-deploy-397570188272-us-east-2/ci-probe/
       - name: Deploy with Serverless (prod)
         run: SLS_DEBUG='*' npx serverless deploy --stage prod --verbose --config serverless.yml
