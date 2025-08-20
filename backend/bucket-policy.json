@@ -1,0 +1,19 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowGithubRoleListAndLocation",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::397570188272:role/github-oidc-deploy" },
+      "Action": ["s3:ListBucket","s3:GetBucketLocation"],
+      "Resource": "arn:aws:s3:::serverless-deploy-397570188272-us-east-2"
+    },
+    {
+      "Sid": "AllowGithubRoleObjectRW",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::397570188272:role/github-oidc-deploy" },
+      "Action": ["s3:GetObject","s3:PutObject","s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::serverless-deploy-397570188272-us-east-2/*"
+    }
+  ]
+}
