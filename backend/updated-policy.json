@@ -1,0 +1,213 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "S3ListBucketPickle",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": "arn:aws:s3:::pickle.kyle-white.com"
+        },
+        {
+            "Sid": "S3ObjectRWForSyncPickle",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": "arn:aws:s3:::pickle.kyle-white.com/*"
+        },
+        {
+            "Sid": "S3ListBucketPortfolio",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": "arn:aws:s3:::kyle-white.com"
+        },
+        {
+            "Sid": "S3ObjectRWForSyncPortfolio",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": "arn:aws:s3:::kyle-white.com/*"
+        },
+        {
+            "Sid": "S3ListBucketGameGeniusAI",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": "arn:aws:s3:::game.kyle-white.com"
+        },
+        {
+            "Sid": "S3ObjectRWForSyncGameGeniusAI",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": "arn:aws:s3:::game.kyle-white.com/*"
+        },
+        {
+            "Sid": "InvalidateCloudFrontPickle",
+            "Effect": "Allow",
+            "Action": "cloudfront:CreateInvalidation",
+            "Resource": "arn:aws:cloudfront::397570188272:distribution/E3MBOAEFHOHU4"
+        },
+        {
+            "Sid": "InvalidateCloudFrontPortfolio",
+            "Effect": "Allow",
+            "Action": "cloudfront:CreateInvalidation",
+            "Resource": "arn:aws:cloudfront::397570188272:distribution/E1LA57KS9MHIPN"
+        },
+        {
+            "Sid": "InvalidateCloudFrontGameGeniusAI",
+            "Effect": "Allow",
+            "Action": "cloudfront:CreateInvalidation",
+            "Resource": "arn:aws:cloudfront::397570188272:distribution/E31H76X3F44CK2"
+        },
+        {
+            "Sid": "SsmDeployViaSendCommand",
+            "Effect": "Allow",
+            "Action": [
+                "ssm:SendCommand",
+                "ssm:GetCommandInvocation",
+                "ssm:ListCommands",
+                "ssm:ListCommandInvocations",
+                "ec2:DescribeInstances"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SendRunShellToThisInstance",
+            "Effect": "Allow",
+            "Action": "ssm:SendCommand",
+            "Resource": [
+                "arn:aws:ec2:us-east-2:397570188272:instance/i-05100bae19aa8379a",
+                "arn:aws:ssm:us-east-2::document/AWS-RunShellScript"
+            ]
+        },
+        {
+            "Sid": "ReadCommandOutput",
+            "Effect": "Allow",
+            "Action": [
+                "ssm:GetCommandInvocation",
+                "ssm:ListCommandInvocations"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "CFNStack",
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:CreateStack",
+                "cloudformation:UpdateStack",
+                "cloudformation:DeleteStack",
+                "cloudformation:DescribeStacks",
+                "cloudformation:DescribeStackEvents",
+                "cloudformation:DescribeStackResources",
+                "cloudformation:DescribeStackResource",
+                "cloudformation:GetTemplate",
+                "cloudformation:ListStackResources"
+            ],
+            "Resource": [
+                "arn:aws:cloudformation:us-east-2:397570188272:stack/pickle-api-prod/*",
+                "arn:aws:cloudformation:us-east-2:397570188272:stack/pickle-api-dev/*"
+            ]
+        },
+        {
+            "Sid": "CloudFormationGlobal",
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:ValidateTemplate",
+                "cloudformation:CreateChangeSet",
+                "cloudformation:DescribeChangeSet",
+                "cloudformation:ExecuteChangeSet",
+                "cloudformation:DeleteChangeSet"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "APIGatewayHTTPv2",
+            "Effect": "Allow",
+            "Action": [
+                "apigateway:GET",
+                "apigateway:POST",
+                "apigateway:PUT",
+                "apigateway:PATCH",
+                "apigateway:DELETE"
+            ],
+            "Resource": "arn:aws:apigateway:us-east-2::/apis*"
+        },
+        {
+            "Sid": "LambdaAllOnFunctions",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:CreateFunction",
+                "lambda:UpdateFunctionCode",
+                "lambda:UpdateFunctionConfiguration",
+                "lambda:DeleteFunction",
+                "lambda:CreateEventSourceMapping",
+                "lambda:UpdateEventSourceMapping",
+                "lambda:DeleteEventSourceMapping",
+                "lambda:PublishVersion",
+                "lambda:Get*",
+                "lambda:List*",
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "DynamoDBTable",
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:CreateTable",
+                "dynamodb:DeleteTable",
+                "dynamodb:DescribeTable",
+                "dynamodb:UpdateTable"
+            ],
+            "Resource": "arn:aws:dynamodb:us-east-2:397570188272:table/pickle-api-table-prod"
+        },
+        {
+            "Sid": "S3DeploymentBucketList",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": "arn:aws:s3:::serverless-deploy-397570188272-us-east-2"
+        },
+        {
+            "Sid": "PassOnlyLambdaExecRoles",
+            "Effect": "Allow",
+            "Action": "iam:PassRole",
+            "Resource": [
+                "arn:aws:iam::397570188272:role/pickle-api-dev-us-east-2-lambdaRole",
+                "arn:aws:iam::397570188272:role/pickle-api-prod-us-east-2-lambdaRole"
+            ]
+        },
+        {
+            "Sid": "IamReadLambdaExecRoles",
+            "Effect": "Allow",
+            "Action": [
+                "iam:GetRole"
+            ],
+            "Resource": [
+                "arn:aws:iam::397570188272:role/pickle-api-prod-us-east-2-lambdaRole",
+                "arn:aws:iam::397570188272:role/pickle-api-dev-us-east-2-lambdaRole"
+            ]
+        }
+    ]
+}
