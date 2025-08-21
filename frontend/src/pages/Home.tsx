@@ -27,9 +27,9 @@ export default function Home() {
   const [loadingPlayers, setLoadingPlayers] = useState(false);
 
   const [a1, setA1] = useState("");
-  const [a2, setA2] = useState("");
+  //const [a2, setA2] = useState("");
   const [b1, setB1] = useState("");
-  const [b2, setB2] = useState("");
+  //const [b2, setB2] = useState("");
   const [sa, setSa] = useState<number | "">("");
   const [sb, setSb] = useState<number | "">("");
   const [savingMatch, setSavingMatch] = useState(false);

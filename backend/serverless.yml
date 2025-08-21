@@ -36,7 +36,13 @@ provider:
         - DELETE
         - OPTIONS
         - PATCH
-
+      authorizers:
+        jwtAuth:
+          type: jwt
+          identitySource: $request.header.Authorization
+          issuerUrl: ${env:COGNITO_ISSUER_URL}
+          audience:
+            - ${env:COGNITO_APP_CLIENT_ID}
 functions:
   listLeagues:
     handler: src/leagues_list.handler
