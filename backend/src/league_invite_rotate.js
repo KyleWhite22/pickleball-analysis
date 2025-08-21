@@ -2,9 +2,10 @@ const {
   DynamoDBClient,
   UpdateItemCommand,
   QueryCommand,
-  GetItemCommand
+  GetItemCommand,
 } = require("@aws-sdk/client-dynamodb");
 const { unmarshall } = require("@aws-sdk/util-dynamodb");
+const { getUserId } = require("./_auth");
 
 const ddb = new DynamoDBClient();
 const TABLE = process.env.TABLE_NAME;
@@ -38,29 +39,26 @@ exports.handler = async (event) => {
     const leagueId = event.pathParameters?.id;
     if (!leagueId) return json(400, { error: "leagueId required" });
 
-    const body = event.body ? JSON.parse(event.body) : {};
-    const requesterId = (body.requesterId || "").toString(); // optional
+    // 🔐 owner check via JWT
+    const userId = getUserId(event);
+    if (!userId) return json(401, { error: "unauthorized" });
 
-    // (Optional) owner check
-    if (requesterId) {
-      const cur = await ddb.send(new GetItemCommand({
-        TableName: TABLE,
-        Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
-        ProjectionExpression: "ownerId",
-      }));
-      if (!cur.Item) return json(404, { error: "not_found" });
-      const { ownerId } = unmarshall(cur.Item);
-      if (ownerId !== requesterId) return json(403, { error: "forbidden" });
-    }
+    const cur = await ddb.send(new GetItemCommand({
+      TableName: TABLE,
+      Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
+      ProjectionExpression: "ownerId",
+    }));
+    if (!cur.Item) return json(404, { error: "not_found" });
+    const { ownerId } = unmarshall(cur.Item);
+    if (ownerId !== userId) return json(403, { error: "forbidden" });
 
     // generate a unique invite code (check GSI2)
     let code = newInvite();
-    for (let i = 0; i < 5; i++) {        // try a few times; probability of collision is tiny
+    for (let i = 0; i < 5; i++) {
       if (!(await inviteExists(code))) break;
       code = newInvite();
     }
 
-    // Update league METADATA item including GSI2 mirrors
     const now = new Date().toISOString();
     const res = await ddb.send(new UpdateItemCommand({
       TableName: TABLE,

@@ -8,7 +8,7 @@ export default function Protected({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const s = await fetchAuthSession();
-        if (s.tokens?.accessToken) setStatus("ok");
+        if (s.tokens?.idToken) setStatus("ok");
         else await signInWithRedirect();
       } catch {
         await signInWithRedirect();

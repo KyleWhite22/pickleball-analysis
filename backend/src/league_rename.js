@@ -1,5 +1,10 @@
-const { DynamoDBClient, UpdateItemCommand, GetItemCommand } = require("@aws-sdk/client-dynamodb");
+const {
+  DynamoDBClient,
+  UpdateItemCommand,
+  GetItemCommand,
+} = require("@aws-sdk/client-dynamodb");
 const { unmarshall } = require("@aws-sdk/util-dynamodb");
+const { getUserId } = require("./_auth");
 
 const ddb = new DynamoDBClient();
 const TABLE = process.env.TABLE_NAME;
@@ -15,22 +20,22 @@ exports.handler = async (event) => {
     const leagueId = event.pathParameters?.id;
     if (!leagueId) return json(400, { error: "leagueId required" });
 
+    const userId = getUserId(event);
+    if (!userId) return json(401, { error: "unauthorized" });
+
     const body = event.body ? JSON.parse(event.body) : {};
     const newName = (body.name || "").trim();
-    const requesterId = (body.requesterId || "").toString(); // optional for simple auth check
     if (!newName) return json(400, { error: "name_required" });
 
-    // (Optional) simple owner check: fetch league and compare ownerId
-    if (requesterId) {
-      const cur = await ddb.send(new GetItemCommand({
-        TableName: TABLE,
-        Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
-        ProjectionExpression: "ownerId",
-      }));
-      if (!cur.Item) return json(404, { error: "not_found" });
-      const { ownerId } = unmarshall(cur.Item);
-      if (ownerId !== requesterId) return json(403, { error: "forbidden" });
-    }
+    // owner check
+    const cur = await ddb.send(new GetItemCommand({
+      TableName: TABLE,
+      Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
+      ProjectionExpression: "ownerId",
+    }));
+    if (!cur.Item) return json(404, { error: "not_found" });
+    const { ownerId } = unmarshall(cur.Item);
+    if (ownerId !== userId) return json(403, { error: "forbidden" });
 
     const res = await ddb.send(new UpdateItemCommand({
       TableName: TABLE,

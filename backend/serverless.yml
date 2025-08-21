@@ -1,5 +1,13 @@
 service: pickle-api
 
+params:
+  dev:
+    COGNITO_ISSUER_URL: https://cognito-idp.us-east-2.amazonaws.com/us-east-2_wvWmECk8W
+    COGNITO_APP_CLIENT_ID: 5srl4gktjb9bvkm3n32c1ld
+  prod:
+    COGNITO_ISSUER_URL: https://cognito-idp.us-east-2.amazonaws.com/us-east-2_wvWmECk8W
+    COGNITO_APP_CLIENT_ID: 5srl4gktjb9bvkm3np3n32c1ld"
+
 provider:
   name: aws
   runtime: nodejs20.x
@@ -36,7 +44,13 @@ provider:
         - DELETE
         - OPTIONS
         - PATCH
-      
+    authorizers:
+      jwtAuth:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: ${param:COGNITO_ISSUER_URL}
+        audience:
+          - ${param:COGNITO_APP_CLIENT_ID}  
 functions:
   listLeagues:
     handler: src/leagues_list.handler
@@ -44,6 +58,7 @@ functions:
       - httpApi:
           path: /leagues
           method: GET
+          authorizer: jwtAuth
 
   createLeague:
     handler: src/leagues_create.handler
@@ -51,6 +66,7 @@ functions:
       - httpApi:
           path: /leagues
           method: POST
+          authorizer: jwtAuth
 
   listMatches:
     handler: src/matches_list.handler
@@ -65,6 +81,7 @@ functions:
       - httpApi:
           path: /leagues/{id}/matches
           method: POST
+          authorizer: jwtAuth
 
   getMetrics:
     handler: src/metrics_get.handler
@@ -100,6 +117,7 @@ functions:
       - httpApi:
           path: /leagues/{id}/matches/last
           method: DELETE
+          authorizer: jwtAuth
 
   getLeague:
     handler: src/league_get.handler
@@ -113,7 +131,8 @@ functions:
     events:
       - httpApi:
           path: /leagues/{id}
-          method: PATCH    
+          method: PATCH
+          authorizer: jwtAuth
 
   rotateInvite:
     handler: src/league_invite_rotate.handler
@@ -121,6 +140,8 @@ functions:
       - httpApi:
           path: /leagues/{id}/invite:rotate
           method: POST
+          authorizer: jwtAuth
+
   publicLeagues:
     handler: src/leagues_public_list.handler
     events:

@@ -1,5 +1,11 @@
-const { DynamoDBClient, QueryCommand, DeleteItemCommand, GetItemCommand } = require("@aws-sdk/client-dynamodb");
+const {
+  DynamoDBClient,
+  QueryCommand,
+  DeleteItemCommand,
+  GetItemCommand,
+} = require("@aws-sdk/client-dynamodb");
 const { unmarshall } = require("@aws-sdk/util-dynamodb");
+const { getUserId } = require("./_auth");
 
 const ddb = new DynamoDBClient();
 const TABLE = process.env.TABLE_NAME;
@@ -24,14 +30,13 @@ exports.handler = async (event) => {
     const leagueId = event.pathParameters?.id;
     if (!leagueId) return json(400, { error: "leagueId required" });
 
-    const body = event.body ? JSON.parse(event.body) : {};
-    const requesterId = (body.requesterId || "").toString();
+    // 🔐 derive user from JWT
+    const userId = getUserId(event);
+    if (!userId) return json(401, { error: "unauthorized" });
 
     const meta = await loadLeagueMeta(leagueId);
     if (!meta) return json(404, { error: "not_found" });
-    if (!requesterId || requesterId !== meta.ownerId) {
-      return json(403, { error: "forbidden" });
-    }
+    if (userId !== meta.ownerId) return json(403, { error: "forbidden" });
 
     // newest match first
     const q = await ddb.send(new QueryCommand({
@@ -47,13 +52,13 @@ exports.handler = async (event) => {
 
     if (!q.Items || q.Items.length === 0) return json(404, { error: "no_matches" });
 
-    const latest = unmarshall(q.Items[0]);
+    const latest = unmarshall(q.Items[0]); // includes SK and matchId
 
     await ddb.send(new DeleteItemCommand({
       TableName: TABLE,
       Key: {
         PK: { S: `LEAGUE#${leagueId}` },
-        SK: { S: latest.SK },
+        SK: { S: latest.SK }, // safe because we didn't project it out
       },
       ConditionExpression: "begins_with(SK, :p)",
       ExpressionAttributeValues: { ":p": { S: "MATCH#" } },

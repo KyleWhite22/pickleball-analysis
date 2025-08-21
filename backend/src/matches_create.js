@@ -6,6 +6,7 @@
 } = require("@aws-sdk/client-dynamodb");
 const { marshall, unmarshall } = require("@aws-sdk/util-dynamodb");
 const { randomUUID } = require("crypto");
+const { getUserId } = require("./_auth");
 
 const ddb = new DynamoDBClient();
 const TABLE = process.env.TABLE_NAME;
@@ -81,12 +82,15 @@ exports.handler = async (event) => {
     const leagueId = event.pathParameters?.id;
     if (!leagueId) return json(400, { error: "leagueId missing in path" });
 
+    // 🔐 derive user from JWT (set by API Gateway authorizer)
+    const userId = getUserId(event);
+    if (!userId) return json(401, { error: "unauthorized" });
+
     const body = event.body ? JSON.parse(event.body) : {};
     const p1Name = (body.player1Name || "").toString();
     const p2Name = (body.player2Name || "").toString();
     const s1 = asInt(body.score1);
     const s2 = asInt(body.score2);
-    const createdBy = (body.createdBy || "dev-user").toString();
 
     if (!p1Name || !p2Name || Number.isNaN(s1) || Number.isNaN(s2)) {
       return json(400, { error: "player1Name, player2Name, score1, score2 are required" });
@@ -96,10 +100,10 @@ exports.handler = async (event) => {
     }
     if (s1 < 0 || s2 < 0) return json(400, { error: "scores must be >= 0" });
 
-    // Visibility rule: if league is private, only the owner can add matches (optional but sensible)
+    // 🔐 owner-only write (public or private)
     const meta = await loadLeagueMeta(leagueId);
     if (!meta) return json(404, { error: "not_found" });
-    if (createdBy !== meta.ownerId) {
+    if (userId !== meta.ownerId) {
       return json(403, { error: "forbidden" });
     }
 
@@ -123,7 +127,7 @@ exports.handler = async (event) => {
         { id: p2.playerId, name: p2.name, points: s2 },
       ],
       winnerId,
-      createdBy,
+      createdBy: userId, // ← from token, not client
       createdAt: new Date(ts).toISOString(),
     };
 
