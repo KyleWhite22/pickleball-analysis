@@ -330,10 +330,6 @@ export default function Home() {
             Undo last match
           </button>
         </form>
-
-        <p className="text-xs text-gray-500 mt-1">
-          Start typing a name to pick an existing player — avoids duplicates like “Amy”, “amy ”, “AMY”.
-        </p>
       </section>
     </div>
   );
