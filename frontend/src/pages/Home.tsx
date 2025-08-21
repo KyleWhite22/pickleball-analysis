@@ -35,8 +35,8 @@ export default function Home() {
   const [savingMatch, setSavingMatch] = useState(false);
 
   const ownerId = "u_42";
-  const ownsSelected = !!selectedLeagueId && leagues.some(l => l.leagueId === selectedLeagueId);
-
+const ownsSelected =
+  !!selectedLeagueId && leagues.some(l => l.leagueId === selectedLeagueId);
   // Load "your leagues"
   useEffect(() => {
     (async () => {
@@ -82,23 +82,26 @@ export default function Home() {
 
   // Standings + players fetch (unchanged)
   useEffect(() => {
-    if (!selectedLeagueId) {
-      setStandings(null);
-      setPlayers([]);
-      return;
-    }
-    setLoadingStandings(true);
-    getStandings(selectedLeagueId, ownerId)
-      .then(setStandings)
-      .catch(e => { console.error(e); setStandings(null); })
-      .finally(() => setLoadingStandings(false));
+  if (!selectedLeagueId) {
+    setStandings(null);
+    setPlayers([]);
+    return;
+  }
 
-    setLoadingPlayers(true);
-    listPlayers(selectedLeagueId, ownerId)
-      .then(setPlayers)
-      .catch(e => { console.error(e); setPlayers([]); })
-      .finally(() => setLoadingPlayers(false));
-  }, [selectedLeagueId]);
+  const viewerId = ownsSelected ? ownerId : undefined;
+
+  setLoadingStandings(true);
+  getStandings(selectedLeagueId, viewerId)
+    .then(setStandings)
+    .catch(e => { console.error(e); setStandings(null); })
+    .finally(() => setLoadingStandings(false));
+
+  setLoadingPlayers(true);
+  listPlayers(selectedLeagueId, viewerId)
+    .then(setPlayers)
+    .catch(e => { console.error(e); setPlayers([]); })
+    .finally(() => setLoadingPlayers(false));
+}, [selectedLeagueId, ownsSelected]);
 
   async function onCreateLeague() {
     if (!newLeagueName.trim()) return;
@@ -245,92 +248,54 @@ export default function Home() {
       </section>
 
       {/* Log match (singles for now) */}
-      <section>
-        <h2 className="text-xl font-semibold mb-2">Log Match (Singles)</h2>
-        {!ownsSelected && (
-          <p className="text-sm text-gray-500 mb-2">
-            Viewing a public league. You can’t add or edit matches unless you own this league.
-          </p>
-        )}
-        <datalist id="league-players">
-          {players.map(p => (
-            <option key={p.playerId} value={p.name} />
-          ))}
-        </datalist>
-        {loadingPlayers && <p className="text-sm text-gray-500">Loading players…</p>}
+     {ownsSelected && (
+  <section>
+    <h2 className="text-xl font-semibold mb-2">Log Match (Singles)</h2>
 
-        <form onSubmit={onSubmitMatch} className="space-y-2">
-          <div className="flex gap-2">
-            <input
-              list="league-players"
-              value={a1}
-              onChange={e => setA1(e.target.value)}
-              placeholder="Player A"
-              className="border px-2 py-1 rounded"
-            />
-            <input
-              list="league-players"
-              value={b1}
-              onChange={e => setB1(e.target.value)}
-              placeholder="Player B"
-              className="border px-2 py-1 rounded"
-            />
-          </div>
+    <datalist id="league-players">
+      {players.map(p => <option key={p.playerId} value={p.name} />)}
+    </datalist>
+    {loadingPlayers && <p className="text-sm text-gray-500">Loading players…</p>}
 
-          <div className="flex gap-2 opacity-60">
-            <input value={a2} onChange={e => setA2(e.target.value)} placeholder="(future) A teammate" className="border px-2 py-1 rounded" />
-            <input value={b2} onChange={e => setB2(e.target.value)} placeholder="(future) B teammate" className="border px-2 py-1 rounded" />
-          </div>
+    <form onSubmit={onSubmitMatch} className="space-y-2">
+      {/* existing inputs */}
+      {/* ... */}
+      <button
+        type="submit"
+        disabled={savingMatch || !selectedLeagueId}
+        className="bg-blue-600 text-white px-4 py-1 rounded disabled:opacity-50"
+      >
+        {savingMatch ? "Saving…" : "Submit Match"}
+      </button>
 
-          <div className="flex gap-2">
-            <input
-              type="number"
-              value={sa}
-              onChange={e => setSa(e.target.value === "" ? "" : Number(e.target.value))}
-              placeholder="Score A"
-              className="border px-2 py-1 rounded w-24"
-            />
-            <input
-              type="number"
-              value={sb}
-              onChange={e => setSb(e.target.value === "" ? "" : Number(e.target.value))}
-              placeholder="Score B"
-              className="border px-2 py-1 rounded w-24"
-            />
-          </div>
+      <button
+        type="button"
+        onClick={async () => {
+          if (!selectedLeagueId) return;
+          try {
+            await deleteLastMatch(selectedLeagueId, ownerId);
+            const [rows, pl] = await Promise.all([
+              getStandings(selectedLeagueId, ownerId),
+              listPlayers(selectedLeagueId, ownerId),
+            ]);
+            setStandings(rows);
+            setPlayers(pl);
+          } catch (e) {
+            console.error(e);
+            alert("Could not delete last match.");
+          }
+        }}
+        className="mt-2 bg-red-600 text-white px-3 py-1 rounded"
+      >
+        Undo last match
+      </button>
+    </form>
 
-          <button
-            type="submit"
-            disabled={savingMatch || !selectedLeagueId || !ownsSelected}
-            className="bg-blue-600 text-white px-4 py-1 rounded disabled:opacity-50"
-          >
-            {savingMatch ? "Saving…" : "Submit Match"}
-          </button>
-
-          <button
-            type="button"
-            disabled={!ownsSelected}
-            onClick={async () => {
-              if (!selectedLeagueId || !ownsSelected) return;
-              try {
-                await deleteLastMatch(selectedLeagueId, ownerId);
-                const [rows, pl] = await Promise.all([
-                  getStandings(selectedLeagueId, ownerId),
-                  listPlayers(selectedLeagueId, ownerId),
-                ]);
-                setStandings(rows);
-                setPlayers(pl);
-              } catch (e) {
-                console.error(e);
-                alert("Could not delete last match.");
-              }
-            }}
-            className="mt-2 bg-red-600 text-white px-3 py-1 rounded disabled:opacity-50"
-          >
-            Undo last match
-          </button>
-        </form>
-      </section>
+    <p className="text-xs text-gray-500 mt-1">
+      Start typing a name to pick an existing player — avoids duplicates like “Amy”, “amy ”, “AMY”.
+    </p>
+  </section>
+)}
     </div>
   );
 }
