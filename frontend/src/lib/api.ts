@@ -61,13 +61,18 @@ export async function listLeagues(ownerId: string, token?: string): Promise<Leag
 }
 
 /** POST /leagues → League (returns leagueId, inviteCode, etc.) */
-export async function createLeague(name: string, ownerId: string, token?: string): Promise<League> {
+export async function createLeague(
+  name: string,
+  ownerId: string,
+  visibility: 'public' | 'private' = 'private',
+  token?: string
+) {
   const res = await fetch(`${BASE}/leagues`, {
     method: "POST",
     headers: buildHeaders(token, "application/json"),
-    body: JSON.stringify({ name, ownerId }), // ownerId optional later when auth is wired
+    body: JSON.stringify({ name, ownerId, visibility }),
   });
-  return asJson<League>(res);
+  return asJson<League & { visibility: 'public' | 'private' }>(res);
 }
 
 /** POST /join/{code} → { joined: true, leagueId, userId } */
@@ -106,12 +111,12 @@ export async function listMatches(leagueId: string, token?: string): Promise<Mat
 
 // ---------- Standings ----------
 /** GET /leagues/{id}/standings → { leagueId, standings: Standing[], totalMatches: number } */
-export async function getStandings(leagueId: string, token?: string): Promise<Standing[]> {
-  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}/standings`, {
-    headers: buildHeaders(token),
-  });
-  const data = await asJson<{ leagueId: string; standings: Standing[]; totalMatches: number }>(res);
-  return Array.isArray(data.standings) ? data.standings : [];
+export async function getStandings(leagueId: string, viewerId?: string) {
+  const url = `${BASE}/leagues/${encodeURIComponent(leagueId)}/standings` +
+              (viewerId ? `?userId=${encodeURIComponent(viewerId)}` : "");
+  const res = await fetch(url, { headers: buildHeaders() });
+  const data = await asJson<{ leagueId: string; standings: any[] }>(res);
+  return data.standings ?? [];
 }
 
 // ---------- (Optional) Metrics ----------
@@ -124,12 +129,12 @@ export async function getMetrics(leagueId: string, token?: string) {
   return asJson<any>(res);
 }
 
-export async function listPlayers(leagueId: string, token?: string): Promise<Player[]> {
-  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}/players`, {
-    headers: buildHeaders(token),
-  });
-  const data = await asJson<{ leagueId: string; players: Player[] }>(res);
-  return Array.isArray(data.players) ? data.players : [];
+export async function listPlayers(leagueId: string, viewerId?: string) {
+  const url = `${BASE}/leagues/${encodeURIComponent(leagueId)}/players` +
+              (viewerId ? `?userId=${encodeURIComponent(viewerId)}` : "");
+  const res = await fetch(url, { headers: buildHeaders() });
+  const data = await asJson<{ leagueId: string; players: any[] }>(res);
+  return data.players ?? [];
 }
 
 export async function deleteLastMatch(leagueId: string, requesterId?: string, token?: string) {
@@ -140,11 +145,12 @@ export async function deleteLastMatch(leagueId: string, requesterId?: string, to
   });
   return asJson<{ ok: boolean; deletedMatchId: string; leagueId: string }>(res);
 }
-export async function getLeague(id: string) {
-  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(id)}`, { headers: buildHeaders() });
-  return asJson<{ leagueId: string; name: string; ownerId: string; inviteCode: string; createdAt: string }>(res);
+export async function getLeague(leagueId: string, viewerId?: string) {
+  const url = `${BASE}/leagues/${encodeURIComponent(leagueId)}` +
+              (viewerId ? `?userId=${encodeURIComponent(viewerId)}` : "");
+  const res = await fetch(url, { headers: buildHeaders() });
+  return asJson(res);
 }
-
 export async function renameLeague(id: string, name: string, requesterId?: string) {
   const res = await fetch(`${BASE}/leagues/${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -161,4 +167,10 @@ export async function rotateInvite(id: string, requesterId?: string) {
     body: JSON.stringify({ requesterId }),
   });
   return asJson<{ leagueId: string; inviteCode: string; rotatedAt: string }>(res);
+}
+
+export async function listPublicLeagues(limit = 50) {
+  const res = await fetch(`${BASE}/leagues/public?limit=${limit}`);
+  const data = await asJson<{ leagues: League[] }>(res);
+  return Array.isArray(data.leagues) ? data.leagues : [];
 }

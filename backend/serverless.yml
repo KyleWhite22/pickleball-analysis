@@ -8,18 +8,20 @@ provider:
   environment:
     TABLE_NAME: !Ref PickleballTable
 
-  iamRoleStatements:
-    - Effect: Allow
-      Action:
-        - dynamodb:PutItem
-        - dynamodb:UpdateItem
-        - dynamodb:GetItem
-        - dynamodb:Query
-        - dynamodb:DeleteItem
-        - dynamodb:TransactWriteItems
-      Resource:
-        - !GetAtt PickleballTable.Arn
-        - !Sub '${PickleballTable.Arn}/index/*'
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:DeleteItem
+            - dynamodb:TransactWriteItems
+          Resource:
+            - !GetAtt PickleballTable.Arn
+            - !Sub '${PickleballTable.Arn}/index/*'
   httpApi:
     cors:
       allowedOrigins:
@@ -119,7 +121,12 @@ functions:
       - httpApi:
           path: /leagues/{id}/invite:rotate
           method: POST
-
+  publicLeagues:
+    handler: src/leagues_public_list.handler
+    events:
+      - httpApi:
+          path: /leagues/public
+          method: GET
 package:
   patterns:
     - src/**
@@ -181,6 +188,10 @@ resources:
             AttributeType: S
           - AttributeName: GSI2SK
             AttributeType: S
+          - AttributeName: GSI3PK
+            AttributeType: S
+          - AttributeName: GSI3SK
+            AttributeType: S
         KeySchema:
           - AttributeName: PK
             KeyType: HASH
@@ -203,3 +214,10 @@ resources:
                 KeyType: RANGE
             Projection:
               ProjectionType: ALL
+          - IndexName: GSI3
+            KeySchema:
+              - AttributeName: GSI3PK
+                KeyType: HASH
+              - AttributeName: GSI3SK
+                KeyType: RANGE
+            Projection: { ProjectionType: ALL }

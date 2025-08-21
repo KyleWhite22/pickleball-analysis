@@ -3,9 +3,9 @@
   QueryCommand,
   PutItemCommand,
   GetItemCommand,
-  TransactWriteItemsCommand,
 } = require("@aws-sdk/client-dynamodb");
 const { marshall, unmarshall } = require("@aws-sdk/util-dynamodb");
+const { randomUUID } = require("crypto");
 
 const ddb = new DynamoDBClient();
 const TABLE = process.env.TABLE_NAME;
@@ -27,38 +27,43 @@ function normName(s) {
   return (s || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+async function loadLeagueMeta(leagueId) {
+  const r = await ddb.send(new GetItemCommand({
+    TableName: TABLE,
+    Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
+    ProjectionExpression: "ownerId, visibility",
+  }));
+  return r.Item ? unmarshall(r.Item) : null;
+}
+
 async function getOrCreatePlayer(leagueId, nameRaw) {
   const nameNorm = normName(nameRaw);
   if (!nameNorm) throw new Error("empty_name");
 
-  // 1) try to find existing by scanning PLAYER# items
   const q = await ddb.send(new QueryCommand({
     TableName: TABLE,
     KeyConditionExpression: "PK = :pk AND begins_with(SK, :pref)",
     ExpressionAttributeValues: {
-      ":pk":   { S: `LEAGUE#${leagueId}` },
+      ":pk": { S: `LEAGUE#${leagueId}` },
       ":pref": { S: "PLAYER#" },
     },
-    // we need SK + name + nameNorm to resolve id + compare
     ProjectionExpression: "SK,#nm,#nn",
     ExpressionAttributeNames: { "#nm": "name", "#nn": "nameNorm" },
     Limit: 500,
   }));
 
-  // find by normalized name, then derive id from SK
   const maybe = (q.Items || []).map(unmarshall).find(p => p.nameNorm === nameNorm);
   if (maybe) {
-    const playerId = (maybe.SK || "").split("#")[1]; // "PLAYER#<id>"
+    const playerId = (maybe.SK || "").split("#")[1];
     return { playerId, name: maybe.name };
   }
 
-  // 2) create new player
   const playerId = rid(10);
   const now = new Date().toISOString();
   const item = {
     PK: `LEAGUE#${leagueId}`,
     SK: `PLAYER#${playerId}`,
-    playerId,             // keep it on the item too (nice to have)
+    playerId,
     name: nameRaw.trim(),
     nameNorm,
     createdAt: now,
@@ -70,6 +75,7 @@ async function getOrCreatePlayer(leagueId, nameRaw) {
   }));
   return { playerId, name: item.name };
 }
+
 exports.handler = async (event) => {
   try {
     const leagueId = event.pathParameters?.id;
@@ -90,33 +96,26 @@ exports.handler = async (event) => {
     }
     if (s1 < 0 || s2 < 0) return json(400, { error: "scores must be >= 0" });
 
-    // (Optional) Require the submitter to be a member; comment this block out if you don't want that.
-    // const membersRes = await ddb.send(new QueryCommand({
-    //   TableName: TABLE,
-    //   KeyConditionExpression: "PK = :pk AND begins_with(SK, :m)",
-    //   ExpressionAttributeValues: {
-    //     ":pk": { S: `LEAGUE#${leagueId}` },
-    //     ":m":  { S: "MEMBER#" },
-    //   },
-    //   ProjectionExpression: "SK",
-    // }));
-    // const submitterIsMember = (membersRes.Items || [])
-    //   .map(i => unmarshall(i).SK.split("#")[1])
-    //   .includes(createdBy);
-    // if (!submitterIsMember) return json(403, { error: "not_a_member" });
+    // Visibility rule: if league is private, only the owner can add matches (optional but sensible)
+    const meta = await loadLeagueMeta(leagueId);
+    if (!meta) return json(404, { error: "not_found" });
+    if (createdBy !== meta.ownerId) {
+      return json(403, { error: "forbidden" });
+    }
 
     // Upsert players by name
     const p1 = await getOrCreatePlayer(leagueId, p1Name);
     const p2 = await getOrCreatePlayer(leagueId, p2Name);
 
-    // Build match
-    const now = new Date().toISOString();
-    const matchId = `${now}-${rid(6)}`;
+    // Build match with collision-proof SK
+    const ts = Date.now();
+    const matchId = randomUUID();
+    const sk = `MATCH#${String(ts).padStart(13, "0")}#${matchId}`;
     const winnerId = s1 === s2 ? null : (s1 > s2 ? p1.playerId : p2.playerId);
 
     const matchItem = {
       PK: `LEAGUE#${leagueId}`,
-      SK: `MATCH#${now}#${matchId}`,
+      SK: sk,
       matchId,
       leagueId,
       players: [
@@ -125,7 +124,7 @@ exports.handler = async (event) => {
       ],
       winnerId,
       createdBy,
-      createdAt: now,
+      createdAt: new Date(ts).toISOString(),
     };
 
     await ddb.send(new PutItemCommand({

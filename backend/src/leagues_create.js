@@ -1,6 +1,5 @@
 ﻿const { DynamoDBClient, PutItemCommand } = require("@aws-sdk/client-dynamodb");
 const { marshall } = require("@aws-sdk/util-dynamodb");
-
 const ddb = new DynamoDBClient();
 const TABLE = process.env.TABLE_NAME;
 
@@ -10,32 +9,27 @@ function randId(len = 12) {
   for (let i = 0; i < len; i++) out += alphabet[(Math.random() * alphabet.length) | 0];
   return out;
 }
-
 function inviteCode(len = 5) {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // avoid O/0 and I/1
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let code = '';
   for (let i = 0; i < len; i++) code += chars[(Math.random() * chars.length) | 0];
   return code;
 }
-
-const json = (statusCode, body, extraHeaders = {}) => ({
-  statusCode,
-  headers: {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    ...extraHeaders,
-  },
+const json = (code, body) => ({
+  statusCode: code,
+  headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
   body: JSON.stringify(body),
 });
 
 exports.handler = async (event) => {
   try {
     const body = event.body ? JSON.parse(event.body) : {};
-    const name = (body.name || "").trim();
-    if (!name) return json(400, { error: "name is required" });
+    const name = (body.name || '').trim();
+    if (!name) return json(400, { error: 'name is required' });
 
-    // dev: allow ownerId in body; later, read from JWT
-    const ownerId = (body.ownerId || "dev-user").toString();
+    const ownerId = (body.ownerId || 'dev-user').toString();
+    const visibilityRaw = (body.visibility || 'private').toString().toLowerCase();
+    const visibility = visibilityRaw === 'public' ? 'public' : 'private';
 
     const now = new Date().toISOString();
     const leagueId = randId(10);
@@ -43,17 +37,26 @@ exports.handler = async (event) => {
 
     const item = {
       PK: `LEAGUE#${leagueId}`,
-      SK: "METADATA",
+      SK: 'METADATA',
       leagueId,
       name,
       ownerId,
       inviteCode: code,
       createdAt: now,
+      visibility,                      // 👈 new
+
+      // existing GSIs
       GSI1PK: `OWNER#${ownerId}`,
       GSI1SK: now,
       GSI2PK: `INVITE#${code}`,
       GSI2SK: `LEAGUE#${leagueId}`,
     };
+
+    // Only public leagues appear in GSI3 (public directory)
+    if (visibility === 'public') {
+      item.GSI3PK = 'VISIBILITY#PUBLIC';
+      item.GSI3SK = now;               // newest first
+    }
 
     await ddb.send(new PutItemCommand({
       TableName: TABLE,
@@ -61,12 +64,10 @@ exports.handler = async (event) => {
       ConditionExpression: "attribute_not_exists(PK) AND attribute_not_exists(SK)",
     }));
 
-    return json(201, { leagueId, name, ownerId, inviteCode: code, createdAt: now });
+    return json(201, { leagueId, name, ownerId, inviteCode: code, createdAt: now, visibility });
   } catch (err) {
     console.error("createLeague error:", err);
-    if (err?.name === "ConditionalCheckFailedException") {
-      return json(409, { error: "league already exists, try again" });
-    }
+    if (err?.name === "ConditionalCheckFailedException") return json(409, { error: "exists" });
     return json(500, { error: "internal_error" });
   }
 };

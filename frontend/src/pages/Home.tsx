@@ -1,96 +1,102 @@
 import { useState, useEffect } from "react";
 import {
   listLeagues,
+  listPublicLeagues,      // 👈 NEW
   createLeague as apiCreateLeague,
   getStandings,
   createMatch,
-  listPlayers,    
-  deleteLastMatch,       
+  listPlayers,
+  deleteLastMatch,
   type League,
   type Standing,
-  type Player,            
+  type Player,
 } from "../lib/api";
 
 export default function Home() {
   const [leagues, setLeagues] = useState<League[]>([]);
+  const [publicLeagues, setPublicLeagues] = useState<League[]>([]); // 👈 NEW
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null);
   const [newLeagueName, setNewLeagueName] = useState("");
+  const [visibility, setVisibility] = useState<"public" | "private">("private");
   const [creating, setCreating] = useState(false);
 
   const [standings, setStandings] = useState<Standing[] | null>(null);
   const [loadingStandings, setLoadingStandings] = useState(false);
 
-  // ✅ players for autocomplete
   const [players, setPlayers] = useState<Player[]>([]);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
 
-  // match form state (singles)
   const [a1, setA1] = useState("");
-  const [a2, setA2] = useState(""); // future doubles
+  const [a2, setA2] = useState("");
   const [b1, setB1] = useState("");
-  const [b2, setB2] = useState(""); // future doubles
+  const [b2, setB2] = useState("");
   const [sa, setSa] = useState<number | "">("");
   const [sb, setSb] = useState<number | "">("");
   const [savingMatch, setSavingMatch] = useState(false);
 
-  // TEMP owner id
   const ownerId = "u_42";
+  const ownsSelected = !!selectedLeagueId && leagues.some(l => l.leagueId === selectedLeagueId);
 
-  // initial fetch of leagues
+  // Load "your leagues"
   useEffect(() => {
     (async () => {
       try {
-        const rows = await listLeagues(ownerId);
-        setLeagues(rows);
-        if (!selectedLeagueId && rows.length) {
+        const mine = await listLeagues(ownerId);
+        setLeagues(mine);
+        // Prefer last-used league, else first of mine; if none, we'll try public later
+        if (!selectedLeagueId) {
           const remembered = localStorage.getItem("leagueId");
           const initial =
-            remembered && rows.find(l => l.leagueId === remembered)
+            remembered && mine.find(l => l.leagueId === remembered)
               ? remembered
-              : rows[0].leagueId;
-          setSelectedLeagueId(initial);
+              : (mine[0]?.leagueId ?? null);
+          if (initial) setSelectedLeagueId(initial);
         }
-      } catch (err) {
-        console.error(err);
+      } catch (e) {
+        console.error(e);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // persist selection
+  // Load public leagues
+  useEffect(() => {
+    (async () => {
+      try {
+        const pubs = await listPublicLeagues();
+        setPublicLeagues(pubs);
+        // If user had none and nothing selected yet, pick the first public
+        if (!selectedLeagueId && pubs.length) {
+          setSelectedLeagueId(pubs[0].leagueId);
+        }
+      } catch (e) {
+        console.error(e);
+        setPublicLeagues([]);
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     if (selectedLeagueId) localStorage.setItem("leagueId", selectedLeagueId);
   }, [selectedLeagueId]);
 
-  // fetch standings when league changes
+  // Standings + players fetch (unchanged)
   useEffect(() => {
     if (!selectedLeagueId) {
       setStandings(null);
-      return;
-    }
-    setLoadingStandings(true);
-    getStandings(selectedLeagueId)
-      .then(rows => setStandings(rows))
-      .catch(err => {
-        console.error(err);
-        setStandings(null);
-      })
-      .finally(() => setLoadingStandings(false));
-  }, [selectedLeagueId]);
-
-  // ✅ fetch players when league changes (for autocomplete)
-  useEffect(() => {
-    if (!selectedLeagueId) {
       setPlayers([]);
       return;
     }
+    setLoadingStandings(true);
+    getStandings(selectedLeagueId, ownerId)
+      .then(setStandings)
+      .catch(e => { console.error(e); setStandings(null); })
+      .finally(() => setLoadingStandings(false));
+
     setLoadingPlayers(true);
-    listPlayers(selectedLeagueId)
+    listPlayers(selectedLeagueId, ownerId)
       .then(setPlayers)
-      .catch(err => {
-        console.error(err);
-        setPlayers([]);
-      })
+      .catch(e => { console.error(e); setPlayers([]); })
       .finally(() => setLoadingPlayers(false));
   }, [selectedLeagueId]);
 
@@ -98,7 +104,7 @@ export default function Home() {
     if (!newLeagueName.trim()) return;
     try {
       setCreating(true);
-      const created = await apiCreateLeague(newLeagueName.trim(), ownerId);
+      const created = await apiCreateLeague(newLeagueName.trim(), ownerId, visibility);
       setNewLeagueName("");
       setLeagues(prev => [created, ...prev]);
       setSelectedLeagueId(created.leagueId);
@@ -108,7 +114,6 @@ export default function Home() {
       setCreating(false);
     }
   }
-
   async function onSubmitMatch(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedLeagueId) return;
@@ -127,7 +132,7 @@ export default function Home() {
         createdBy: ownerId,
       });
 
-      // refresh standings + players list (new names appear for autocomplete)
+      // refresh standings + players (new names appear in autocomplete)
       const [rows, pl] = await Promise.all([
         getStandings(selectedLeagueId),
         listPlayers(selectedLeagueId),
@@ -135,7 +140,7 @@ export default function Home() {
       setStandings(rows);
       setPlayers(pl);
 
-      // clear scores; keep names for quick repeat
+      // clear scores; keep names for quick repeat entry
       setSa("");
       setSb("");
     } catch (err) {
@@ -144,19 +149,39 @@ export default function Home() {
       setSavingMatch(false);
     }
   }
+  // Helper: bind select value only if the id exists in that list
+  const yourValue =
+    selectedLeagueId && leagues.some(l => l.leagueId === selectedLeagueId)
+      ? selectedLeagueId
+      : "";
+  const publicValue =
+    selectedLeagueId && publicLeagues.some(l => l.leagueId === selectedLeagueId)
+      ? selectedLeagueId
+      : "";
 
   return (
     <div className="space-y-8 p-4">
-      {/* League picker */}
+      {/* Create + selectors */}
       <section>
         <h2 className="text-xl font-semibold mb-2">Leagues</h2>
-        <div className="flex gap-2">
+
+        {/* Create form */}
+        <div className="flex gap-2 items-center">
           <input
             value={newLeagueName}
             onChange={e => setNewLeagueName(e.target.value)}
             placeholder="New league name"
             className="border px-3 py-1 rounded"
           />
+          <select
+            value={visibility}
+            onChange={e => setVisibility(e.target.value as "public" | "private")}
+            className="border px-2 py-1 rounded"
+            title="Visibility"
+          >
+            <option value="private">Private</option>
+            <option value="public">Public</option>
+          </select>
           <button
             disabled={creating || !newLeagueName.trim()}
             onClick={onCreateLeague}
@@ -166,20 +191,40 @@ export default function Home() {
           </button>
         </div>
 
-        <select
-          value={selectedLeagueId ?? ""}
-          onChange={e => setSelectedLeagueId(e.target.value)}
-          className="mt-2 border rounded px-2 py-1"
-        >
-          <option value="" disabled>Select a league…</option>
-          {leagues.map(l => (
-            <option key={l.leagueId} value={l.leagueId}>
-              {l.name} (code: {l.inviteCode})
-            </option>
-          ))}
-        </select>
-      </section>
+        {/* Your leagues dropdown */}
+        <div className="mt-3">
+          <label className="block text-sm text-gray-600 mb-1">Your leagues</label>
+          <select
+            value={yourValue}
+            onChange={e => setSelectedLeagueId(e.target.value || null)}
+            className="border rounded px-2 py-1 w-full"
+          >
+            <option value="">— Select one of yours —</option>
+            {leagues.map(l => (
+              <option key={l.leagueId} value={l.leagueId}>
+                {l.name} (code: {l.inviteCode})
+              </option>
+            ))}
+          </select>
+        </div>
 
+        {/* Public leagues dropdown */}
+        <div className="mt-3">
+          <label className="block text-sm text-gray-600 mb-1">Public leagues</label>
+          <select
+            value={publicValue}
+            onChange={e => setSelectedLeagueId(e.target.value || null)}
+            className="border rounded px-2 py-1 w-full"
+          >
+            <option value="">— Browse public leagues —</option>
+            {publicLeagues.map(l => (
+              <option key={l.leagueId} value={l.leagueId}>
+                {l.name} (code: {l.inviteCode})
+              </option>
+            ))}
+          </select>
+        </div>
+      </section>
       {/* Standings */}
       <section>
         <h2 className="text-xl font-semibold mb-2">Standings</h2>
@@ -202,8 +247,11 @@ export default function Home() {
       {/* Log match (singles for now) */}
       <section>
         <h2 className="text-xl font-semibold mb-2">Log Match (Singles)</h2>
-
-        {/* ✅ datalist fed by league players */}
+        {!ownsSelected && (
+          <p className="text-sm text-gray-500 mb-2">
+            Viewing a public league. You can’t add or edit matches unless you own this league.
+          </p>
+        )}
         <datalist id="league-players">
           {players.map(p => (
             <option key={p.playerId} value={p.name} />
@@ -229,7 +277,6 @@ export default function Home() {
             />
           </div>
 
-          {/* Keep these for later doubles support; ignored for now */}
           <div className="flex gap-2 opacity-60">
             <input value={a2} onChange={e => setA2(e.target.value)} placeholder="(future) A teammate" className="border px-2 py-1 rounded" />
             <input value={b2} onChange={e => setB2(e.target.value)} placeholder="(future) B teammate" className="border px-2 py-1 rounded" />
@@ -254,21 +301,22 @@ export default function Home() {
 
           <button
             type="submit"
-            disabled={savingMatch || !selectedLeagueId}
+            disabled={savingMatch || !selectedLeagueId || !ownsSelected}
             className="bg-blue-600 text-white px-4 py-1 rounded disabled:opacity-50"
           >
             {savingMatch ? "Saving…" : "Submit Match"}
           </button>
+
           <button
             type="button"
+            disabled={!ownsSelected}
             onClick={async () => {
-              if (!selectedLeagueId) return;
+              if (!selectedLeagueId || !ownsSelected) return;
               try {
                 await deleteLastMatch(selectedLeagueId, ownerId);
-                // refresh standings (and players list just in case)
                 const [rows, pl] = await Promise.all([
-                  getStandings(selectedLeagueId),
-                  listPlayers(selectedLeagueId),
+                  getStandings(selectedLeagueId, ownerId),
+                  listPlayers(selectedLeagueId, ownerId),
                 ]);
                 setStandings(rows);
                 setPlayers(pl);
@@ -277,7 +325,7 @@ export default function Home() {
                 alert("Could not delete last match.");
               }
             }}
-            className="mt-2 bg-red-600 text-white px-3 py-1 rounded"
+            className="mt-2 bg-red-600 text-white px-3 py-1 rounded disabled:opacity-50"
           >
             Undo last match
           </button>

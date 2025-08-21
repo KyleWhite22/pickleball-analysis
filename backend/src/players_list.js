@@ -1,4 +1,4 @@
-const { DynamoDBClient, QueryCommand } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBClient, QueryCommand, GetItemCommand } = require("@aws-sdk/client-dynamodb");
 const { unmarshall } = require("@aws-sdk/util-dynamodb");
 
 const ddb = new DynamoDBClient();
@@ -10,10 +10,27 @@ const json = (code, body) => ({
   body: JSON.stringify(body),
 });
 
+async function loadLeagueMeta(leagueId) {
+  const r = await ddb.send(new GetItemCommand({
+    TableName: TABLE,
+    Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
+    ProjectionExpression: "ownerId, visibility",
+  }));
+  return r.Item ? unmarshall(r.Item) : null;
+}
+function canView(meta, userId) {
+  return meta.visibility === "public" || (userId && userId === meta.ownerId);
+}
+
 exports.handler = async (event) => {
   try {
     const leagueId = event.pathParameters?.id;
     if (!leagueId) return json(400, { error: "leagueId required" });
+
+    const viewerId = event.queryStringParameters?.userId || null;
+    const meta = await loadLeagueMeta(leagueId);
+    if (!meta) return json(404, { error: "not_found" });
+    if (!canView(meta, viewerId)) return json(403, { error: "forbidden" });
 
     const res = await ddb.send(new QueryCommand({
       TableName: TABLE,
@@ -22,7 +39,7 @@ exports.handler = async (event) => {
         ":pk": { S: `LEAGUE#${leagueId}` },
         ":p":  { S: "PLAYER#" },
       },
-      ProjectionExpression: "playerId, #nm, nameNorm, createdAt",
+      ProjectionExpression: "playerId, #nm, nameNorm, createdAt, SK",
       ExpressionAttributeNames: { "#nm": "name" },
       Limit: 500
     }));
@@ -34,7 +51,6 @@ exports.handler = async (event) => {
       createdAt: p.createdAt
     })).filter(p => p.playerId);
 
-    // sort alphabetically by display name
     players.sort((a, b) => a.name.localeCompare(b.name));
 
     return json(200, { leagueId, players });

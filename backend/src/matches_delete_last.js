@@ -1,4 +1,4 @@
-const { DynamoDBClient, QueryCommand, DeleteItemCommand } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBClient, QueryCommand, DeleteItemCommand, GetItemCommand } = require("@aws-sdk/client-dynamodb");
 const { unmarshall } = require("@aws-sdk/util-dynamodb");
 
 const ddb = new DynamoDBClient();
@@ -10,15 +10,30 @@ const json = (code, body) => ({
   body: JSON.stringify(body),
 });
 
+async function loadLeagueMeta(leagueId) {
+  const r = await ddb.send(new GetItemCommand({
+    TableName: TABLE,
+    Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
+    ProjectionExpression: "ownerId",
+  }));
+  return r.Item ? unmarshall(r.Item) : null;
+}
+
 exports.handler = async (event) => {
   try {
     const leagueId = event.pathParameters?.id;
     if (!leagueId) return json(400, { error: "leagueId required" });
 
     const body = event.body ? JSON.parse(event.body) : {};
-    const requesterId = body.requesterId || null; // optional: who is undoing
+    const requesterId = (body.requesterId || "").toString();
 
-    // 1) fetch newest match for this league
+    const meta = await loadLeagueMeta(leagueId);
+    if (!meta) return json(404, { error: "not_found" });
+    if (!requesterId || requesterId !== meta.ownerId) {
+      return json(403, { error: "forbidden" });
+    }
+
+    // newest match first
     const q = await ddb.send(new QueryCommand({
       TableName: TABLE,
       KeyConditionExpression: "PK = :pk AND begins_with(SK, :p)",
@@ -26,29 +41,20 @@ exports.handler = async (event) => {
         ":pk": { S: `LEAGUE#${leagueId}` },
         ":p":  { S: "MATCH#" },
       },
-      ScanIndexForward: false, // newest first
+      ScanIndexForward: false,
       Limit: 1,
     }));
 
-    if (!q.Items || q.Items.length === 0) {
-      return json(404, { error: "no_matches" });
-    }
+    if (!q.Items || q.Items.length === 0) return json(404, { error: "no_matches" });
 
     const latest = unmarshall(q.Items[0]);
-    // optional: simple permission check
-    if (requesterId && latest.createdBy && latest.createdBy !== requesterId) {
-      // you can relax/modify this rule; for now only the original submitter (or omit requesterId) can undo
-      return json(403, { error: "forbidden_not_creator" });
-    }
 
-    // 2) delete it
     await ddb.send(new DeleteItemCommand({
       TableName: TABLE,
       Key: {
         PK: { S: `LEAGUE#${leagueId}` },
-        SK: { S: latest.SK }, // keep the exact SK we queried
+        SK: { S: latest.SK },
       },
-      // defensive: ensure we're deleting a match item
       ConditionExpression: "begins_with(SK, :p)",
       ExpressionAttributeValues: { ":p": { S: "MATCH#" } },
     }));
@@ -56,7 +62,6 @@ exports.handler = async (event) => {
     return json(200, { ok: true, deletedMatchId: latest.matchId, leagueId });
   } catch (err) {
     console.error("matches_delete_last error:", err);
-    // Conditional fail means someone wrote a new match between query and delete
     if (err?.name === "ConditionalCheckFailedException") {
       return json(409, { error: "conflict_retry" });
     }

@@ -1,4 +1,4 @@
-const { DynamoDBClient, QueryCommand } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBClient, QueryCommand, GetItemCommand } = require("@aws-sdk/client-dynamodb");
 const { unmarshall } = require("@aws-sdk/util-dynamodb");
 
 const ddb = new DynamoDBClient();
@@ -10,12 +10,28 @@ const json = (code, body) => ({
   body: JSON.stringify(body),
 });
 
+async function loadLeagueMeta(leagueId) {
+  const r = await ddb.send(new GetItemCommand({
+    TableName: TABLE,
+    Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
+    ProjectionExpression: "ownerId, visibility",
+  }));
+  return r.Item ? unmarshall(r.Item) : null;
+}
+function canView(meta, userId) {
+  return meta.visibility === "public" || (userId && userId === meta.ownerId);
+}
+
 exports.handler = async (event) => {
   try {
     const leagueId = event.pathParameters?.id;
     if (!leagueId) return json(400, { error: "leagueId required" });
 
-    // Fetch matches for league
+    const viewerId = event.queryStringParameters?.userId || null;
+    const meta = await loadLeagueMeta(leagueId);
+    if (!meta) return json(404, { error: "not_found" });
+    if (!canView(meta, viewerId)) return json(403, { error: "forbidden" });
+
     const res = await ddb.send(new QueryCommand({
       TableName: TABLE,
       KeyConditionExpression: "PK = :pk AND begins_with(SK, :p)",
@@ -23,15 +39,13 @@ exports.handler = async (event) => {
         ":pk": { S: `LEAGUE#${leagueId}` },
         ":p":  { S: "MATCH#" },
       },
-      // newest first helps us compute streak in order
       ScanIndexForward: false,
-      Limit: 500, // plenty for MVP; paginate later if needed
+      Limit: 500,
     }));
 
     const matches = (res.Items || []).map(unmarshall);
 
-    // Aggregate per playerId
-    const stats = new Map(); // id -> { id, name, wins, losses, pointsFor, pointsAgainst, streak }
+    const stats = new Map();
     const ensure = (id, name) => {
       if (!stats.has(id)) stats.set(id, { id, name, wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0, streak: 0, lastResult: null });
       return stats.get(id);
@@ -39,7 +53,7 @@ exports.handler = async (event) => {
 
     for (const m of matches) {
       if (!Array.isArray(m.players) || m.players.length !== 2) continue;
-      const [a, b] = m.players; // {id,name,points}
+      const [a, b] = m.players;
       const sa = Number(a.points ?? 0), sb = Number(b.points ?? 0);
 
       const A = ensure(a.id, a.name);
@@ -48,21 +62,15 @@ exports.handler = async (event) => {
       A.pointsFor += sa; A.pointsAgainst += sb;
       B.pointsFor += sb; B.pointsAgainst += sa;
 
-      if (sa === sb) continue; // ignore ties for now
+      if (sa === sb) continue;
       const aWon = sa > sb;
 
-      if (aWon) { A.wins++; B.losses++; }
-      else      { B.wins++; A.losses++; }
+      if (aWon) { A.wins++; B.losses++; } else { B.wins++; A.losses++; }
 
-      // Update streaks (newest→oldest iteration)
       const applyResult = (entry, won) => {
-        if (entry.lastResult === null) {
-          entry.streak = won ? 1 : -1;
-        } else if ((entry.streak > 0 && won) || (entry.streak < 0 && !won)) {
-          entry.streak += won ? 1 : -1;
-        } else {
-          entry.streak = won ? 1 : -1;
-        }
+        if (entry.lastResult === null) entry.streak = won ? 1 : -1;
+        else if ((entry.streak > 0 && won) || (entry.streak < 0 && !won)) entry.streak += won ? 1 : -1;
+        else entry.streak = won ? 1 : -1;
         entry.lastResult = won;
       };
       applyResult(A, aWon);
@@ -81,12 +89,11 @@ exports.handler = async (event) => {
         pointsFor: r.pointsFor,
         pointsAgainst: r.pointsAgainst,
         pointDiff: r.pointsFor - r.pointsAgainst,
-        streak: r.streak, // positive = W streak, negative = L streak
+        streak: r.streak,
         games,
       };
     });
 
-    // Sort: winPct desc, then wins desc, then pointDiff desc, then name
     rows.sort((x, y) =>
       y.winPct - x.winPct ||
       y.wins   - x.wins   ||
