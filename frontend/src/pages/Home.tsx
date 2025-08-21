@@ -298,6 +298,28 @@ const ownsSelected =
       >
         {savingMatch ? "Saving…" : "Submit Match"}
       </button>
+      <button
+            type="button"
+            disabled={!ownsSelected}
+            onClick={async () => {
+              if (!selectedLeagueId || !ownsSelected) return;
+              try {
+                await deleteLastMatch(selectedLeagueId, ownerId);
+                const [rows, pl] = await Promise.all([
+                  getStandings(selectedLeagueId, ownerId),
+                  listPlayers(selectedLeagueId, ownerId),
+                ]);
+                setStandings(rows);
+                setPlayers(pl);
+              } catch (e) {
+                console.error(e);
+                alert("Could not delete last match.");
+              }
+            }}
+            className="mt-2 bg-red-600 text-white px-3 py-1 rounded disabled:opacity-50"
+          >
+            Undo last match
+          </button>
     </form>
   </section>
 )}
