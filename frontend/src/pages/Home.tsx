@@ -246,9 +246,8 @@ const ownsSelected =
         )}
         {standings && standings.length === 0 && <p>No matches yet.</p>}
       </section>
-
-      {/* Log match (singles for now) */}
-     {ownsSelected && (
+{/*log match*/}
+  {ownsSelected && (
   <section>
     <h2 className="text-xl font-semibold mb-2">Log Match (Singles)</h2>
 
@@ -258,8 +257,40 @@ const ownsSelected =
     {loadingPlayers && <p className="text-sm text-gray-500">Loading players…</p>}
 
     <form onSubmit={onSubmitMatch} className="space-y-2">
-      {/* existing inputs */}
-      {/* ... */}
+      <div className="flex gap-2">
+        <input
+          list="league-players"
+          value={a1}
+          onChange={e => setA1(e.target.value)}
+          placeholder="Player A"
+          className="border px-2 py-1 rounded"
+        />
+        <input
+          list="league-players"
+          value={b1}
+          onChange={e => setB1(e.target.value)}
+          placeholder="Player B"
+          className="border px-2 py-1 rounded"
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <input
+          type="number"
+          value={sa}
+          onChange={e => setSa(e.target.value === "" ? "" : Number(e.target.value))}
+          placeholder="Score A"
+          className="border px-2 py-1 rounded w-24"
+        />
+        <input
+          type="number"
+          value={sb}
+          onChange={e => setSb(e.target.value === "" ? "" : Number(e.target.value))}
+          placeholder="Score B"
+          className="border px-2 py-1 rounded w-24"
+        />
+      </div>
+
       <button
         type="submit"
         disabled={savingMatch || !selectedLeagueId}
@@ -267,33 +298,7 @@ const ownsSelected =
       >
         {savingMatch ? "Saving…" : "Submit Match"}
       </button>
-
-      <button
-        type="button"
-        onClick={async () => {
-          if (!selectedLeagueId) return;
-          try {
-            await deleteLastMatch(selectedLeagueId, ownerId);
-            const [rows, pl] = await Promise.all([
-              getStandings(selectedLeagueId, ownerId),
-              listPlayers(selectedLeagueId, ownerId),
-            ]);
-            setStandings(rows);
-            setPlayers(pl);
-          } catch (e) {
-            console.error(e);
-            alert("Could not delete last match.");
-          }
-        }}
-        className="mt-2 bg-red-600 text-white px-3 py-1 rounded"
-      >
-        Undo last match
-      </button>
     </form>
-
-    <p className="text-xs text-gray-500 mt-1">
-      Start typing a name to pick an existing player — avoids duplicates like “Amy”, “amy ”, “AMY”.
-    </p>
   </section>
 )}
     </div>
