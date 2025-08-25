@@ -3,7 +3,6 @@ import { Amplify } from "aws-amplify";
 const origin = typeof window !== "undefined" ? window.location.origin : "";
 
 const rawDomain = import.meta.env.VITE_COGNITO_DOMAIN as string | undefined;
-// accept with or without https://
 const domain = rawDomain ? rawDomain.replace(/^https?:\/\//, "") : "";
 const poolId  = import.meta.env.VITE_COGNITO_USER_POOL_ID as string | undefined;
 const clientId = import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID as string | undefined;
@@ -14,7 +13,7 @@ if (!domain || !poolId || !clientId) {
 }
 
 const oauth = {
-  domain,                                // e.g. my-prefix.auth.us-east-2.amazoncognito.com
+  domain,                                // e.g. us-east-2wvwmeck8w.auth.us-east-2.amazoncognito.com
   scopes: ["openid", "email", "profile"],
   redirectSignIn: [origin],              // must be in Cognito Callback URLs
   redirectSignOut: [origin],             // must be in Cognito Sign-out URLs
@@ -23,18 +22,18 @@ const oauth = {
 
 Amplify.configure({
   Auth: ({
-    // v6 shape
+    // v6 shape (Cognito nested)
     Cognito: ({
       userPoolId: poolId,
       userPoolClientId: clientId,
       loginWith: { email: true },
       oauth,
     } as any),
-    // add here too for older checks
+    // also set at top-level for older internal checks
     oauth,
   } as any),
 });
 
-// expose for quick runtime sanity checks
-(window as any).__amplifyEnv = { domain, poolId, clientId, origin };
+// Optional: quick sanity check in console
+;(window as any).__amplifyEnv = { domain, poolId, clientId, origin };
 /* NEED TO FIX OAUTH AND SHOULD .env.produciton value literally be <> or should i fill in?*/
