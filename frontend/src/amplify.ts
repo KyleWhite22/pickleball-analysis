@@ -1,25 +1,30 @@
-// src/amplify.ts
 import { Amplify } from "aws-amplify";
 
-const origin = typeof window !== "undefined" ? window.location.origin : "";
-
-const poolId = import.meta.env.VITE_COGNITO_USER_POOL_ID!;
+const poolId   = import.meta.env.VITE_COGNITO_USER_POOL_ID!;
 const clientId = import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID!;
-const domain = (import.meta.env.VITE_COGNITO_DOMAIN || "").replace(/^https?:\/\//, "");
+const domain   = (import.meta.env.VITE_COGNITO_DOMAIN || "").replace(/^https?:\/\//, "");
+
+const redirectSignIn  = [
+  "https://pickle.kyle-white.com/auth/callback",
+  "http://localhost:5173/auth/callback",
+];
+const redirectSignOut = [
+  "https://pickle.kyle-white.com/",
+  "http://localhost:5173/",
+];
 
 Amplify.configure({
   Auth: {
     Cognito: {
       userPoolId: poolId,
       userPoolClientId: clientId,
-      // 👇 oauth MUST be inside loginWith
       loginWith: {
         email: true,
         oauth: {
-          domain, // e.g. us-east-2wvwmeck8w.auth.us-east-2.amazoncognito.com
+          domain,                          // e.g. us-east-2wvwmeck8w.auth.us-east-2.amazoncognito.com
           scopes: ["openid", "email", "profile"],
-          redirectSignIn: [`${origin}/auth/callback`],
-          redirectSignOut: [origin],
+          redirectSignIn,
+          redirectSignOut,
           responseType: "code",
         },
       },
@@ -27,11 +32,9 @@ Amplify.configure({
   },
 });
 
-// (optional) quick sanity check in the console
+// simple runtime sanity check
 if (typeof window !== "undefined") {
-  (window as any).__amplifyCfg = Amplify.getConfig();
-  console.log(
-    "[amplify] oauth configured?",
-    !!(window as any).__amplifyCfg?.Auth?.Cognito?.loginWith?.oauth
-  );
+  (window as any).__amplify = Amplify.getConfig();
+  console.log("Amplify oauth =",
+    (window as any).__amplify?.Auth?.Cognito?.loginWith?.oauth);
 }
