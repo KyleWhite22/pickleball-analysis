@@ -38,6 +38,10 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Show .env.production (redacted)
+        working-directory: frontend
+        run: sed -E 's/(=).+/\1***REDACTED***/' .env.production && echo && cat .env.production | grep VITE_COGNITO_USER_POOL_CLIENT_ID
+      
       - name: Build
         run: npm run build
 
