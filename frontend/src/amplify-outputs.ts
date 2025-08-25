@@ -8,10 +8,8 @@ export default {
       loginWith: {
         email: true,
         oauth: {
-          // NOTE: bare host (no https://)
           domain: 'us-east-2wvwmeck8w.auth.us-east-2.amazoncognito.com',
           scopes: ['openid', 'email', 'profile'],
-          // Support both local dev and prod
           redirectSignIn: [
             'http://localhost:5173/auth/callback',
             'https://pickle.kyle-white.com/auth/callback',
