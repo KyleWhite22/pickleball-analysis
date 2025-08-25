@@ -1,39 +1,39 @@
 import { Amplify } from "aws-amplify";
 
-const origin = typeof window !== "undefined" ? window.location.origin : "";
+// Use exact callback path that’s in Cognito → App client → Managed login pages
+const origin =
+  typeof window !== "undefined" ? window.location.origin : "";
 
-const rawDomain = import.meta.env.VITE_COGNITO_DOMAIN as string | undefined;
-const domain = rawDomain ? rawDomain.replace(/^https?:\/\//, "") : "";
-const poolId  = import.meta.env.VITE_COGNITO_USER_POOL_ID as string | undefined;
+// Read Vite envs at build time
+const poolId   = import.meta.env.VITE_COGNITO_USER_POOL_ID as string | undefined;
 const clientId = import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID as string | undefined;
+const rawDomain = import.meta.env.VITE_COGNITO_DOMAIN as string | undefined;
 
-if (!domain || !poolId || !clientId) {
-  console.error("Amplify Auth env missing", { domain, poolId, clientId });
-  throw new Error("Missing Cognito env. Ensure VITE_* vars are set for this build.");
+// Accept with or without protocol
+const domain = rawDomain?.replace(/^https?:\/\//, "");
+
+if (!poolId || !clientId || !domain) {
+  console.error("Amplify Auth env missing", { poolId, clientId, domain });
+  // Don’t throw in production—let the app render and you can read console output
 }
 
-const oauth = {
-  domain,                                // e.g. us-east-2wvwmeck8w.auth.us-east-2.amazoncognito.com
-  scopes: ["openid", "email", "profile"],
-  redirectSignIn: [origin],              // must be in Cognito Callback URLs
-  redirectSignOut: [origin],             // must be in Cognito Sign-out URLs
-  responseType: "code",
-} as const;
-
-Amplify.configure({
-  Auth: ({
-    // v6 shape (Cognito nested)
-    Cognito: ({
+const authConfig: any = {
+  Auth: {
+    // v6 User Pool-only config
+    Cognito: {
       userPoolId: poolId,
       userPoolClientId: clientId,
       loginWith: { email: true },
-      oauth,
-    } as any),
-    // also set at top-level for older internal checks
-    oauth,
-  } as any),
-});
+    },
+    // Hosted UI (code grant)
+    oauth: {
+      domain,                             // e.g. my-prefix.auth.us-east-2.amazoncognito.com
+      scopes: ["openid", "email", "profile"],
+      redirectSignIn:  [`${origin}/auth/callback`],
+      redirectSignOut: [origin],
+      responseType: "code",
+    },
+  },
+};
 
-// Optional: quick sanity check in console
-;(window as any).__amplifyEnv = { domain, poolId, clientId, origin };
-/* NEED TO FIX OAUTH AND SHOULD .env.produciton value literally be <> or should i fill in?*/
+Amplify.configure(authConfig);

@@ -7,9 +7,9 @@ export default function Protected({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const s = await fetchAuthSession();
+        const s = await fetchAuthSession();           // will be empty if not signed in
         if (s.tokens?.idToken) setStatus("ok");
-        else await signInWithRedirect();
+        else await signInWithRedirect();              // kicks to Cognito Hosted UI
       } catch {
         await signInWithRedirect();
       }
