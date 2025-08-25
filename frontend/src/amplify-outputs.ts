@@ -6,14 +6,23 @@ export default {
       userPoolId: 'us-east-2_wvWmECk8W',
       userPoolClientId: '5srl4gktjb9bvkm3np3n32c1ld',
       loginWith: {
-  oauth: {
-    domain: 'https://us-east-2wvwmeck8w.auth.us-east-2.amazoncognito.com',
-    scopes: ['openid','email','profile'],
-    redirectSignIn:  ['http://localhost:5173/auth/callback'],
-    redirectSignOut: ['http://localhost:5173/'],
-    responseType: 'code'
-  }
-}
-    }
-  }
+        email: true,
+        oauth: {
+          // NOTE: bare host (no https://)
+          domain: 'us-east-2wvwmeck8w.auth.us-east-2.amazoncognito.com',
+          scopes: ['openid', 'email', 'profile'],
+          // Support both local dev and prod
+          redirectSignIn: [
+            'http://localhost:5173/auth/callback',
+            'https://pickle.kyle-white.com/auth/callback',
+          ],
+          redirectSignOut: [
+            'http://localhost:5173/',
+            'https://pickle.kyle-white.com/',
+          ],
+          responseType: 'code',
+        },
+      },
+    },
+  },
 } satisfies ResourcesConfig;
