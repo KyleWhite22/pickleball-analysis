@@ -1,32 +1,40 @@
 import { Amplify } from "aws-amplify";
 
-const origin  = typeof window !== "undefined" ? window.location.origin : "";
-const poolId  = import.meta.env.VITE_COGNITO_USER_POOL_ID!;
-const clientId= import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID!;
-const domain  = (import.meta.env.VITE_COGNITO_DOMAIN! as string).replace(/^https?:\/\//, "");
+const origin =
+  typeof window !== "undefined" ? window.location.origin : "http://localhost:5173";
+
+const poolId   = import.meta.env.VITE_COGNITO_USER_POOL_ID!;
+const clientId = import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID!;
+const rawDomain = import.meta.env.VITE_COGNITO_DOMAIN!; // e.g. us-xyz.auth.us-east-2.amazoncognito.com
+const domain = rawDomain.replace(/^https?:\/\//, "");    // ensure it's a bare host
+
+if (!poolId || !clientId || !domain) {
+  console.error("Missing Cognito envs", { poolId, clientId, domain: rawDomain });
+  throw new Error("Missing Cognito envs");
+}
 
 Amplify.configure({
   Auth: {
-    Cognito: ({
+    Cognito: {
       userPoolId: poolId,
       userPoolClientId: clientId,
+      // 👇 oauth MUST be nested under loginWith
       loginWith: {
         email: true,
         oauth: {
-          domain,                                   // e.g. us-east-2xxxx.auth.us-east-2.amazoncognito.com (NO https://)
+          domain,                              // no protocol
           scopes: ["openid", "email", "profile"],
-          redirectSignIn: [`${origin}/auth/callback`],
+          redirectSignIn:  [`${origin}/auth/callback`],
           redirectSignOut: [origin],
           responseType: "code",
         },
       },
-    } as any),
+    },
   },
 });
 
-// DEBUG so you can verify in prod:
-(window as any).__amplify = Amplify.getConfig();
-console.log("[amplify] configured", {
-  origin, poolId, clientId, domain,
-  hasOAuth: !!(Amplify.getConfig().Auth?.Cognito?.loginWith?.oauth),
-});
+// Debug helpers in the browser console
+// (lets you inspect the config quickly)
+;(window as any).__amplify = Amplify;
+;(window as any).__amplifyCfg = (Amplify as any)?._config;
+console.log("[amplify] configured", { origin, poolId, clientId, domain });
