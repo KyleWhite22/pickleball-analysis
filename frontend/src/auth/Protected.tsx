@@ -7,10 +7,17 @@ export default function Protected({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const s = await fetchAuthSession();           // will be empty if not signed in
-        if (s.tokens?.idToken) setStatus("ok");
-        else await signInWithRedirect();              // kicks to Cognito Hosted UI
-      } catch {
+        // 👇 Ensure amplify config module is executed in this chunk before we touch Auth
+        await import("../amplify");
+
+        const s = await fetchAuthSession();
+        if (s.tokens?.idToken) {
+          setStatus("ok");
+        } else {
+          await signInWithRedirect();
+        }
+      } catch (e) {
+        console.error("Protected gate error:", e);
         await signInWithRedirect();
       }
     })();
