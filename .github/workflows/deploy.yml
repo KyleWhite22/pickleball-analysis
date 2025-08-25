@@ -40,7 +40,6 @@ jobs:
       
       - name: Build
         run: npm run build
-          grep -R "loginWith:{email:!0,oauth" dist/ -n || echo "NESTED oauth not found"
 
       - name: Verify build
         run: test -f dist/index.html
