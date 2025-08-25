@@ -12,7 +12,7 @@ permissions:
 
 env:
   BUCKET: pickle.kyle-white.com
-  DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}   # <— optional, safer
+  DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}   
 
 concurrency:
   group: frontend-deploy
