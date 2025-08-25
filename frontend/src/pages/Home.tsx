@@ -225,7 +225,7 @@ export default function Home() {
 
         {/* Public leagues dropdown */}
         <div className="mt-3">
-          <label className="block text-sm text-gray-600 mb-1">Public Leagues</label>
+          <label className="block text-sm text-gray-600 mb-1">Public leagues</label>
           <select
             value={publicValue}
             onChange={(e) => setSelectedLeagueId(e.target.value || null)}
