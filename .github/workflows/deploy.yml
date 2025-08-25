@@ -42,8 +42,15 @@ jobs:
         working-directory: frontend
         run: sed -E 's/(=).+/\1***REDACTED***/' .env.production && echo && cat .env.production | grep VITE_COGNITO_USER_POOL_CLIENT_ID
       
+      - name: Show Vite envs
+        run: |
+          node -e "console.log(process.env.VITE_COGNITO_USER_POOL_ID)"
+          node -e "console.log(process.env.VITE_COGNITO_USER_POOL_CLIENT_ID)"
+          node -e "console.log(process.env.VITE_COGNITO_DOMAIN)"
+          node -e "console.log(process.env.VITE_API_URL)
       - name: Build
         run: npm run build
+          grep -R "loginWith:{email:!0,oauth" dist/ -n || echo "NESTED oauth not found"
 
       - name: Verify build
         run: test -f dist/index.html
