@@ -1,32 +1,37 @@
+// src/amplify.ts
 import { Amplify } from "aws-amplify";
 
 const origin = typeof window !== "undefined" ? window.location.origin : "";
 
-const poolId   = import.meta.env.VITE_COGNITO_USER_POOL_ID as string;
-const clientId = import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID as string;
-const rawDomain = import.meta.env.VITE_COGNITO_DOMAIN as string;
-const domain = rawDomain.replace(/^https?:\/\//, ""); // host only
-
-const oauth = {
-  domain,                                // e.g. us-east-2wvwmeck8w.auth.us-east-2.amazoncognito.com
-  scopes: ["openid", "email", "profile"],
-  redirectSignIn:  [`${origin}/auth/callback`],
-  redirectSignOut: [origin],
-  responseType: "code",
-} as const;
+const poolId = import.meta.env.VITE_COGNITO_USER_POOL_ID!;
+const clientId = import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID!;
+const domain = (import.meta.env.VITE_COGNITO_DOMAIN || "").replace(/^https?:\/\//, "");
 
 Amplify.configure({
-  Auth: ({
-    Cognito: ({
+  Auth: {
+    Cognito: {
       userPoolId: poolId,
       userPoolClientId: clientId,
-      loginWith: { email: true },
-      oauth,                // v6 requires it here
-    } as any),
-    oauth,                  // also mirror at root for safety
-  } as any),
+      // 👇 oauth MUST be inside loginWith
+      loginWith: {
+        email: true,
+        oauth: {
+          domain, // e.g. us-east-2wvwmeck8w.auth.us-east-2.amazoncognito.com
+          scopes: ["openid", "email", "profile"],
+          redirectSignIn: [`${origin}/auth/callback`],
+          redirectSignOut: [origin],
+          responseType: "code",
+        },
+      },
+    },
+  },
 });
 
-// 👇 breadcrumb so you can check it in DevTools
-;(window as any).__amplifyCfg = (Amplify as any)._config;
-console.log("[amplify] configured", { origin, poolId, clientId, domain });
+// (optional) quick sanity check in the console
+if (typeof window !== "undefined") {
+  (window as any).__amplifyCfg = Amplify.getConfig();
+  console.log(
+    "[amplify] oauth configured?",
+    !!(window as any).__amplifyCfg?.Auth?.Cognito?.loginWith?.oauth
+  );
+}
