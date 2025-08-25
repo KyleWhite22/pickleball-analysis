@@ -356,7 +356,7 @@ export default function Home() {
 
       {!ownsSelected && selectedLeagueId && (
         <p className="text-sm text-gray-500">
-          Viewing a public league, only the owner can log matches.
+          Viewing a public league - only the owner can log matches.
         </p>
       )}
     </div>

@@ -41,6 +41,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify build has Cognito values
+        working-directory: frontend
+        run: |
+          grep -R "us-east-2wvwmeck8w.auth.us-east-2.amazoncognito.com" dist/ -n || (echo "Domain not found in bundle" && exit 1)
+          grep -R "5srl4gktjb9bvkm3np3n32c1ld" dist/ -n || (echo "ClientId not found in bundle" && exit 1)
+
       - name: Verify build
         run: test -f dist/index.html
 
