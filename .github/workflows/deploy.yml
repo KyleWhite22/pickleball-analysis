@@ -24,12 +24,19 @@ jobs:
     defaults:
       run:
         working-directory: frontend
+    env:
+      BUCKET: pickle.kyle-white.com
+      DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}
+
+      # 🔑 Vite envs injected at build time
+      VITE_API_URL: https://api.pickle.kyle-white.com
+      VITE_COGNITO_USER_POOL_ID: us-east-2_wvWmECk8W
+      VITE_COGNITO_USER_POOL_CLIENT_ID: 5srl4gktjb9bvkm3n32c1ld
+      VITE_COGNITO_DOMAIN: us-east-2wvwmeck8w.auth.us-east-2.amazoncognito.com
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
@@ -41,31 +48,31 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Verify build
-        run: test -f dist/index.html
+      - name: Verify build has Cognito values
+        run: |
+          grep -R "us-east-2wvwmeck8w.auth.us-east-2.amazoncognito.com" dist/ -n
+          grep -R "5srl4gktjb9bvkm3np3n32c1ld" dist/ -n
 
       - name: Configure AWS (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::397570188272:role/github-oidc-deploy
-          aws-region: us-east-2   # <— set to your S3 bucket’s region
+          aws-region: us-east-2
 
-      # (optional) clean any stray uploads
       - name: Clean accidental /src
         run: aws s3 rm s3://$BUCKET/src --recursive || true
 
-      # Long-cache all built assets except index.html
       - name: Sync assets
         run: |
           aws s3 sync dist/ s3://$BUCKET --delete \
             --exclude "index.html" \
             --cache-control "public,max-age=31536000,immutable"
 
-      # No-cache index.html so users see changes immediately
       - name: Upload index.html
         run: |
           aws s3 cp dist/index.html s3://$BUCKET/index.html \
             --cache-control "no-cache" --content-type "text/html"
 
       - name: Invalidate CloudFront
+        if: ${{ env.DIST_ID != '' }}
         run: aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"

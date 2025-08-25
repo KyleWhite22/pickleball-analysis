@@ -7,7 +7,7 @@ export default function Protected({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        // 👇 Ensure amplify config module is executed in this chunk before we touch Auth
+        // Ensure config is loaded in this chunk before any Auth call
         await import("../amplify");
 
         const s = await fetchAuthSession();
@@ -33,6 +33,5 @@ export default function Protected({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-
   return <>{children}</>;
 }
