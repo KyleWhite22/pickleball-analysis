@@ -15,7 +15,8 @@ provider:
   stage: ${opt:stage, 'dev'}
   environment:
     TABLE_NAME: !Ref PickleballTable
-
+    COGNITO_ISSUER_URL: ${param:COGNITO_ISSUER_URL}
+    COGNITO_APP_CLIENT_ID: ${param:COGNITO_APP_CLIENT_ID}
   iam:
     role:
       statements:
@@ -31,6 +32,7 @@ provider:
             - !GetAtt PickleballTable.Arn
             - !Sub '${PickleballTable.Arn}/index/*'
   httpApi:
+    payload: '2.0'
     cors:
       allowedOrigins:
         - http://localhost:5173
@@ -44,29 +46,24 @@ provider:
         - DELETE
         - OPTIONS
         - PATCH
+      allowCredentials: false
+      maxAge: 1800
     authorizers:
       jwtAuth:
         type: jwt
         identitySource: $request.header.Authorization
         issuerUrl: ${param:COGNITO_ISSUER_URL}
         audience:
-          - ${param:COGNITO_APP_CLIENT_ID}  
+          - ${param:COGNITO_APP_CLIENT_ID}
+
 functions:
+  # ---------- GET (PUBLIC, optional token in Lambda) ----------
   listLeagues:
     handler: src/leagues_list.handler
     events:
       - httpApi:
           path: /leagues
           method: GET
-          authorizer: jwtAuth
-
-  createLeague:
-    handler: src/leagues_create.handler
-    events:
-      - httpApi:
-          path: /leagues
-          method: POST
-          authorizer: jwtAuth
 
   listMatches:
     handler: src/matches_list.handler
@@ -75,28 +72,13 @@ functions:
           path: /leagues/{id}/matches
           method: GET
 
-  createMatch:
-    handler: src/matches_create.handler
-    events:
-      - httpApi:
-          path: /leagues/{id}/matches
-          method: POST
-          authorizer: jwtAuth
-
   getMetrics:
     handler: src/metrics_get.handler
     events:
       - httpApi:
           path: /leagues/{id}/metrics
           method: GET
-  
-  joinByCode:
-    handler: src/join_by_code.handler
-    events:
-      - httpApi:
-          path: /join/{code}
-          method: POST
-          
+
   getStandings:
     handler: src/standings_get.handler
     events:
@@ -111,6 +93,37 @@ functions:
           path: /leagues/{id}/players
           method: GET
 
+  getLeague:
+    handler: src/league_get.handler
+    events:
+      - httpApi:
+          path: /leagues/{id}
+          method: GET
+
+  publicLeagues:
+    handler: src/leagues_public_list.handler
+    events:
+      - httpApi:
+          path: /leagues/public
+          method: GET
+
+  # ---------- WRITE (OWNER-ONLY; protected by JWT authorizer) ----------
+  createLeague:
+    handler: src/leagues_create.handler
+    events:
+      - httpApi:
+          path: /leagues
+          method: POST
+          authorizer: jwtAuth
+
+  createMatch:
+    handler: src/matches_create.handler
+    events:
+      - httpApi:
+          path: /leagues/{id}/matches
+          method: POST
+          authorizer: jwtAuth
+
   deleteLastMatch:
     handler: src/matches_delete_last.handler
     events:
@@ -118,13 +131,6 @@ functions:
           path: /leagues/{id}/matches/last
           method: DELETE
           authorizer: jwtAuth
-
-  getLeague:
-    handler: src/league_get.handler
-    events:
-      - httpApi:
-          path: /leagues/{id}
-          method: GET
 
   renameLeague:
     handler: src/league_rename.handler
@@ -134,90 +140,58 @@ functions:
           method: PATCH
           authorizer: jwtAuth
 
-  rotateInvite:
-    handler: src/league_invite_rotate.handler
-    events:
-      - httpApi:
-          path: /leagues/{id}/invite:rotate
-          method: POST
-          authorizer: jwtAuth
-
-  publicLeagues:
-    handler: src/leagues_public_list.handler
-    events:
-      - httpApi:
-          path: /leagues/public
-          method: GET
 package:
   patterns:
     - src/**
-    - '!node_modules/**'
+    - node_modules/**
+    - package.json
+    - package-lock.json
 
 resources:
   Conditions:
     IsProd:
-      Fn::Equals:
-        - ${sls:stage}
-        - prod
+      Fn::Equals: [ ${sls:stage}, prod ]
 
   Resources:
     ApiApiMapping:
       Type: AWS::ApiGatewayV2::ApiMapping
       Condition: IsProd
-      DependsOn: HttpApiStage 
+      DependsOn: HttpApiStage
       Properties:
         ApiId: !Ref HttpApi
-        DomainName: api.pickle.kyle-white.com   #
-        Stage: !Ref HttpApiStage                    
-    
+        DomainName: api.pickle.kyle-white.com
+        Stage: !Ref HttpApiStage
+
     PickleballTable:
       Type: AWS::DynamoDB::Table
       Properties:
         TableName: pickleball-${sls:stage}
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
-          - AttributeName: PK
-            AttributeType: S
-          - AttributeName: SK
-            AttributeType: S
-          - AttributeName: GSI1PK
-            AttributeType: S
-          - AttributeName: GSI1SK
-            AttributeType: S
-          - AttributeName: GSI2PK
-            AttributeType: S
-          - AttributeName: GSI2SK
-            AttributeType: S
-          - AttributeName: GSI3PK
-            AttributeType: S
-          - AttributeName: GSI3SK
-            AttributeType: S
+          - { AttributeName: PK,    AttributeType: S }
+          - { AttributeName: SK,    AttributeType: S }
+          - { AttributeName: GSI1PK, AttributeType: S }
+          - { AttributeName: GSI1SK, AttributeType: S }
+          - { AttributeName: GSI2PK, AttributeType: S }
+          - { AttributeName: GSI2SK, AttributeType: S }
+          - { AttributeName: GSI3PK, AttributeType: S }
+          - { AttributeName: GSI3SK, AttributeType: S }
         KeySchema:
-          - AttributeName: PK
-            KeyType: HASH
-          - AttributeName: SK
-            KeyType: RANGE
+          - { AttributeName: PK, KeyType: HASH }
+          - { AttributeName: SK, KeyType: RANGE }
         GlobalSecondaryIndexes:
           - IndexName: GSI1
             KeySchema:
-              - AttributeName: GSI1PK
-                KeyType: HASH
-              - AttributeName: GSI1SK
-                KeyType: RANGE
-            Projection:
-              ProjectionType: ALL
+              - { AttributeName: GSI1PK, KeyType: HASH }
+              - { AttributeName: GSI1SK, KeyType: RANGE }
+            Projection: { ProjectionType: ALL }
           - IndexName: GSI2
             KeySchema:
-              - AttributeName: GSI2PK
-                KeyType: HASH
-              - AttributeName: GSI2SK
-                KeyType: RANGE
-            Projection:
-              ProjectionType: ALL
+              - { AttributeName: GSI2PK, KeyType: HASH }
+              - { AttributeName: GSI2SK, KeyType: RANGE }
+            Projection: { ProjectionType: ALL }
           - IndexName: GSI3
             KeySchema:
-              - AttributeName: GSI3PK
-                KeyType: HASH
-              - AttributeName: GSI3SK
-                KeyType: RANGE
+              - { AttributeName: GSI3PK, KeyType: HASH }
+              - { AttributeName: GSI3SK, KeyType: RANGE }
             Projection: { ProjectionType: ALL }

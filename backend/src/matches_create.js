@@ -40,7 +40,7 @@ async function loadLeagueMeta(leagueId) {
   const r = await ddb.send(
     new GetItemCommand({
       TableName: TABLE,
-      Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
+      Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "META" } },
       ProjectionExpression: "ownerId, visibility",
     })
   );

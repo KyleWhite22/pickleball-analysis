@@ -1,27 +1,22 @@
-const { DynamoDBClient, QueryCommand, GetItemCommand } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBClient, GetItemCommand, QueryCommand } = require("@aws-sdk/client-dynamodb");
 const { unmarshall } = require("@aws-sdk/util-dynamodb");
+const { getOptionalUserId } = require("./auth_optional");
 
-const ddb = new DynamoDBClient();
+const ddb = new DynamoDBClient({});
 const TABLE = process.env.TABLE_NAME;
 
 const json = (code, body) => ({
   statusCode: code,
-  headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+  headers: {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Vary": "Authorization",
+  },
   body: JSON.stringify(body),
 });
 
-async function loadLeagueMeta(leagueId) {
-  const r = await ddb.send(new GetItemCommand({
-    TableName: TABLE,
-    Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
-    ProjectionExpression: "ownerId, visibility",
-  }));
-  return r.Item ? unmarshall(r.Item) : null;
-}
-function canView(meta, viewerId) {
-  const vis = (meta?.visibility || 'private').toLowerCase();
-  if (vis === 'public') return true;                 // anyone can view public
-  return !!viewerId && viewerId === meta?.ownerId;   // only owner can view private
+function canView(meta, userId) {
+  return meta?.visibility === "public" || (userId && userId === meta?.ownerId);
 }
 
 exports.handler = async (event) => {
@@ -29,36 +24,39 @@ exports.handler = async (event) => {
     const leagueId = event.pathParameters?.id;
     if (!leagueId) return json(400, { error: "leagueId required" });
 
-    const viewerId = getUserId(event)
-    const meta = await loadLeagueMeta(leagueId);
-    if (!meta) return json(404, { error: "not_found" });
-if (!canView(meta, viewerId)) {
-  return json(403, { error: 'forbidden' });
-}
-    const res = await ddb.send(new QueryCommand({
+    // meta
+    const metaRes = await ddb.send(new GetItemCommand({
       TableName: TABLE,
-      KeyConditionExpression: "PK = :pk AND begins_with(SK, :p)",
+      Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "META" } },
+      ProjectionExpression: "ownerId, visibility",
+    }));
+    if (!metaRes.Item) return json(404, { error: "not_found" });
+    const meta = unmarshall(metaRes.Item);
+
+    const userId = await getOptionalUserId(event);
+    if (!canView(meta, userId)) return json(403, { error: "forbidden" });
+
+    // players
+    const q = await ddb.send(new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: "PK = :pk AND begins_with(SK, :pref)",
       ExpressionAttributeValues: {
         ":pk": { S: `LEAGUE#${leagueId}` },
-        ":p":  { S: "PLAYER#" },
+        ":pref": { S: "PLAYER#" },
       },
-      ProjectionExpression: "playerId, #nm, nameNorm, createdAt, SK",
-      ExpressionAttributeNames: { "#nm": "name" },
-      Limit: 500
+      ProjectionExpression: "playerId, #n",
+      ExpressionAttributeNames: { "#n": "name" },
+      Limit: 500,
     }));
 
-    const players = (res.Items || []).map(unmarshall).map(p => ({
-      playerId: p.playerId || (p.SK ? p.SK.split("#")[1] : undefined),
+    const players = (q.Items || []).map(unmarshall).map(p => ({
+      playerId: p.playerId,
       name: p.name,
-      nameNorm: p.nameNorm,
-      createdAt: p.createdAt
-    })).filter(p => p.playerId);
-
-    players.sort((a, b) => a.name.localeCompare(b.name));
+    }));
 
     return json(200, { leagueId, players });
   } catch (err) {
-    console.error("players_list error:", err);
+    console.error("players_list error", err);
     return json(500, { error: "internal_error" });
   }
 };

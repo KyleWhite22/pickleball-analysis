@@ -41,7 +41,7 @@ export default function Home() {
   const ownsSelected =
     !!selectedLeagueId && leagues.some((l) => l.leagueId === selectedLeagueId);
 
-  // Load "your leagues" (JWT required under the hood)
+  // Load "your leagues" (token attached automatically if signed in)
   useEffect(() => {
     (async () => {
       try {
@@ -122,6 +122,7 @@ export default function Home() {
       setSelectedLeagueId(created.leagueId);
     } catch (e) {
       console.error(e);
+      alert("Could not create league. Are you signed in?");
     } finally {
       setCreating(false);
     }
@@ -156,6 +157,7 @@ export default function Home() {
       setSb("");
     } catch (err) {
       console.error(err);
+      alert("Could not save match. Only the owner can log matches.");
     } finally {
       setSavingMatch(false);
     }
@@ -217,7 +219,7 @@ export default function Home() {
             <option value="">— Select one of yours —</option>
             {leagues.map((l) => (
               <option key={l.leagueId} value={l.leagueId}>
-                {l.name} (code: {l.inviteCode})
+                {l.name}
               </option>
             ))}
           </select>
@@ -234,7 +236,7 @@ export default function Home() {
             <option value="">— Browse public leagues —</option>
             {publicLeagues.map((l) => (
               <option key={l.leagueId} value={l.leagueId}>
-                {l.name} (code: {l.inviteCode})
+                {l.name}
               </option>
             ))}
           </select>
@@ -349,14 +351,12 @@ export default function Home() {
               Undo last match
             </button>
           </form>
-
-         
         </section>
       )}
 
       {!ownsSelected && selectedLeagueId && (
         <p className="text-sm text-gray-500">
-          Viewing a public league - only the owner can log matches.
+          Viewing a public league — only the owner can log matches.
         </p>
       )}
     </div>

@@ -36,7 +36,7 @@ exports.handler = async (event) => {
     const cur = await ddb.send(
       new GetItemCommand({
         TableName: TABLE,
-        Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
+        Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "META" } },
         ProjectionExpression: "ownerId",
       })
     );
@@ -48,7 +48,7 @@ exports.handler = async (event) => {
     const res = await ddb.send(
       new UpdateItemCommand({
         TableName: TABLE,
-        Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
+        Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "META" } },
         UpdateExpression: "SET #n = :name",
         ExpressionAttributeNames: { "#n": "name" },
         ExpressionAttributeValues: { ":name": { S: newName } },

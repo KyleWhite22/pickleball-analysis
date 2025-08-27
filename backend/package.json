@@ -11,7 +11,8 @@
     "@aws-sdk/client-dynamodb": "^3.629.0",
     "@aws-sdk/lib-dynamodb": "^3.629.0",
     "aws-amplify": "^6.15.5",
-    "aws-sdk": "^2.1602.0"
+    "aws-sdk": "^2.1602.0",
+    "jose": "^4.15.9"
   },
   "devDependencies": {
     "esbuild": "^0.21.5",
