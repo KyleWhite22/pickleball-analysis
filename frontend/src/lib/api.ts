@@ -9,8 +9,9 @@ export type League = {
   ownerId: string;
   inviteCode: string;
   createdAt: string;
-  visibility?: "public" | "private";
+  visibility?: "public" | "private"; // optional, server returns it
 };
+
 
 export type MatchPlayer = { id: string; name: string; points: number };
 export type Match = {
@@ -60,20 +61,20 @@ async function asJson<T>(res: Response): Promise<T> {
 export async function listLeagues(): Promise<League[]> {
   const res = await fetch(`${BASE}/leagues`, { headers: await buildHeaders() });
   const data = await asJson<{ ownerId: string; leagues: League[] }>(res);
-  return data.leagues ?? [];
+  return Array.isArray(data.leagues) ? data.leagues : [];
 }
 
 /** POST /leagues  (JWT required)  body: { name, visibility } */
 export async function createLeague(
   name: string,
-  visibility: "public" | "private" = "private"
-) {
+  visibility: "public" | "private" = "private",
+): Promise<League> {
   const res = await fetch(`${BASE}/leagues`, {
     method: "POST",
     headers: await buildHeaders("application/json"),
-    body: JSON.stringify({ name, visibility }),
+    body: JSON.stringify({ name, visibility }), // ownerId comes from JWT server-side
   });
-  return asJson(res);
+  return asJson<League>(res);
 }
 
 /** POST /join/{code} → { joined: true, leagueId, userId }  (public) */
@@ -169,10 +170,8 @@ export async function rotateInvite(id: string) {
 
 // ---------- Public leagues ----------
 /** GET /leagues/public → { leagues } (public) */
-export async function listPublicLeagues(limit = 50) {
-  const res = await fetch(`${BASE}/leagues/public?limit=${limit}`, {
-    headers: await buildHeaders(),
-  });
+export async function listPublicLeagues(limit = 50): Promise<League[]> {
+  const res = await fetch(`${BASE}/leagues/public?limit=${limit}`);
   const data = await asJson<{ leagues: League[] }>(res);
   return Array.isArray(data.leagues) ? data.leagues : [];
 }
