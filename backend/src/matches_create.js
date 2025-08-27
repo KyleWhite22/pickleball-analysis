@@ -7,8 +7,8 @@
 const { marshall, unmarshall } = require("@aws-sdk/util-dynamodb");
 const { randomUUID } = require("crypto");
 
-const ddb = new DynamoDBClient();
-const TABLE = process.env.TABLE_NAME;
+const ddb = new DynamoDBClient({});
+const TABLE = process.env.TABLE_NAME || process.env.TABLE; // fallback just in case
 
 const json = (code, body) => ({
   statusCode: code,
@@ -19,49 +19,40 @@ const json = (code, body) => ({
   body: JSON.stringify(body),
 });
 
-const userFromEvent = (event) => {
-  const claims = event.requestContext?.authorizer?.jwt?.claims || {};
-const userId = claims.sub || claims['cognito:username'];
-if (userId !== meta.ownerId) return json(403, { error: 'forbidden' });
-};
+function userFromAuthorizer(event) {
+  const claims = event?.requestContext?.authorizer?.jwt?.claims || {};
+  return claims.sub || claims["cognito:username"] || null;
+}
 
 const asInt = (x) => {
   const n = Number(x);
   return Number.isFinite(n) ? Math.trunc(n) : NaN;
 };
-
 const rid = (len = 12) =>
   Math.random().toString(36).slice(2).replace(/[^a-z0-9]/gi, "").slice(0, len);
+const norm = (s) => (s || "").trim().toLowerCase().replace(/\s+/g, " ");
 
-function normName(s) {
-  return (s || "").trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-async function loadLeagueMeta(leagueId) {
-  const baseKey = { PK: { S: `LEAGUE#${leagueId}` } };
-
-  // Try canonical key first
+async function loadMeta(leagueId) {
+  // Try META first (current)
   let r = await ddb.send(new GetItemCommand({
     TableName: TABLE,
-    Key: { ...baseKey, SK: { S: "META" } },
+    Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "META" } },
     ProjectionExpression: "ownerId, visibility",
   }));
   if (r.Item) return unmarshall(r.Item);
-
-  // TEMP fallback for any old data (optional):
+  // Legacy fallback
   r = await ddb.send(new GetItemCommand({
     TableName: TABLE,
-    Key: { ...baseKey, SK: { S: "META" } },
+    Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
     ProjectionExpression: "ownerId, visibility",
   }));
   return r.Item ? unmarshall(r.Item) : null;
 }
 
 async function getOrCreatePlayer(leagueId, nameRaw) {
-  const nameNorm = normName(nameRaw);
+  const nameNorm = norm(nameRaw);
   if (!nameNorm) throw new Error("empty_name");
 
-  // Look for an existing normalized name
   const q = await ddb.send(new QueryCommand({
     TableName: TABLE,
     KeyConditionExpression: "PK = :pk AND begins_with(SK, :pref)",
@@ -73,13 +64,12 @@ async function getOrCreatePlayer(leagueId, nameRaw) {
     ExpressionAttributeNames: { "#nm": "name", "#nn": "nameNorm" },
     Limit: 500,
   }));
-  const maybe = (q.Items || []).map(unmarshall).find(p => p.nameNorm === nameNorm);
+  const maybe = (q.Items || []).map(unmarshall).find((p) => p.nameNorm === nameNorm);
   if (maybe) {
     const playerId = (maybe.SK || "").split("#")[1];
     return { playerId, name: maybe.name };
   }
 
-  // Create new
   const playerId = rid(10);
   const now = new Date().toISOString();
   const item = {
@@ -90,117 +80,74 @@ async function getOrCreatePlayer(leagueId, nameRaw) {
     nameNorm,
     createdAt: now,
   };
-
-  try {
-    await ddb.send(new PutItemCommand({
-      TableName: TABLE,
-      Item: marshall(item),
-      ConditionExpression: "attribute_not_exists(PK) AND attribute_not_exists(SK)",
-    }));
-    return { playerId, name: item.name };
-  } catch (e) {
-    // If a concurrent request inserted the same player, re-query and return that one
-    if (e?.name === "ConditionalCheckFailedException") {
-      const q2 = await ddb.send(new QueryCommand({
-        TableName: TABLE,
-        KeyConditionExpression: "PK = :pk AND begins_with(SK, :pref)",
-        ExpressionAttributeValues: {
-          ":pk": { S: `LEAGUE#${leagueId}` },
-          ":pref": { S: "PLAYER#" },
-        },
-        ProjectionExpression: "SK,#nm,#nn",
-        ExpressionAttributeNames: { "#nm": "name", "#nn": "nameNorm" },
-        Limit: 500,
-      }));
-      const again = (q2.Items || []).map(unmarshall).find(p => p.nameNorm === nameNorm);
-      if (again) {
-        const playerId2 = (again.SK || "").split("#")[1];
-        return { playerId: playerId2, name: again.name };
-      }
-    }
-    console.error("getOrCreatePlayer failed", { leagueId, nameRaw, err: e });
-    throw e;
-  }
+  await ddb.send(new PutItemCommand({
+    TableName: TABLE,
+    Item: marshall(item),
+    ConditionExpression: "attribute_not_exists(PK) AND attribute_not_exists(SK)",
+  }));
+  return { playerId, name: item.name };
 }
 
 exports.handler = async (event) => {
   try {
     const leagueId = event.pathParameters?.id;
-    if (!leagueId) return json(400, { error: "leagueId missing in path" });
+    const userId = userFromAuthorizer(event);
+    const table = TABLE;
+    console.log("createMatch dbg", { leagueId, userId, table });
 
-    // requester from JWT (API Gateway JWT authorizer must be enabled)
-    const userId = userFromEvent(event);
+    if (!table) return json(500, { error: "internal_error", name: "EnvError", message: "TABLE_NAME missing" });
+    if (!leagueId) return json(400, { error: "leagueId_missing" });
     if (!userId) return json(401, { error: "unauthorized" });
 
     const body = event.body ? JSON.parse(event.body) : {};
-    const p1Name = (body.player1Name || "").toString();
-    const p2Name = (body.player2Name || "").toString();
+    const p1 = (body.player1Name || "").toString();
+    const p2 = (body.player2Name || "").toString();
     const s1 = asInt(body.score1);
     const s2 = asInt(body.score2);
-
-    if (!p1Name || !p2Name || Number.isNaN(s1) || Number.isNaN(s2)) {
-      return json(400, {
-        error: "player1Name, player2Name, score1, score2 are required",
-      });
+    if (!p1 || !p2 || Number.isNaN(s1) || Number.isNaN(s2)) {
+      return json(400, { error: "bad_request", message: "player1Name, player2Name, score1, score2 required" });
     }
-    if (normName(p1Name) === normName(p2Name)) {
-      return json(400, { error: "players must be different" });
-    }
-    if (s1 < 0 || s2 < 0) return json(400, { error: "scores must be >= 0" });
+    if (norm(p1) === norm(p2)) return json(400, { error: "players_must_differ" });
 
-    // owner-only write (regardless of public/private)
-    const meta = await loadLeagueMeta(leagueId);
+    const meta = await loadMeta(leagueId);
+    console.log("meta", meta);
     if (!meta) return json(404, { error: "not_found" });
     if (userId !== meta.ownerId) return json(403, { error: "forbidden" });
 
-    // Upsert players by name
-    const p1 = await getOrCreatePlayer(leagueId, p1Name);
-    const p2 = await getOrCreatePlayer(leagueId, p2Name);
+    // Upsert players
+    const P1 = await getOrCreatePlayer(leagueId, p1);
+    const P2 = await getOrCreatePlayer(leagueId, p2);
 
-    // Build match with collision-proof SK
+    // Create match
     const ts = Date.now();
     const matchId = randomUUID();
     const sk = `MATCH#${String(ts).padStart(13, "0")}#${matchId}`;
-    const winnerId = s1 === s2 ? null : s1 > s2 ? p1.playerId : p2.playerId;
+    const winnerId = s1 === s2 ? null : s1 > s2 ? P1.playerId : P2.playerId;
 
-    const matchItem = {
+    const item = {
       PK: `LEAGUE#${leagueId}`,
       SK: sk,
       matchId,
       leagueId,
       players: [
-        { id: p1.playerId, name: p1.name, points: s1 },
-        { id: p2.playerId, name: p2.name, points: s2 },
+        { id: P1.playerId, name: P1.name, points: s1 },
+        { id: P2.playerId, name: P2.name, points: s2 },
       ],
       winnerId,
-      createdBy: userId, // from token, not client
+      createdBy: userId,
       createdAt: new Date(ts).toISOString(),
     };
 
-    await ddb.send(
-      new PutItemCommand({
-        TableName: TABLE,
-        Item: marshall(matchItem),
-        ConditionExpression:
-          "attribute_not_exists(PK) AND attribute_not_exists(SK)",
-      })
-    );
+    await ddb.send(new PutItemCommand({
+      TableName: table,
+      Item: marshall(item),
+      ConditionExpression: "attribute_not_exists(PK) AND attribute_not_exists(SK)",
+    }));
 
-    return json(201, {
-      ok: true,
-      matchId,
-      leagueId,
-      players: matchItem.players,
-      winnerId,
-    });
+    return json(201, { ok: true, matchId, leagueId, players: item.players, winnerId });
   } catch (err) {
     console.error("matches_create error:", err);
-    if (err?.name === "ConditionalCheckFailedException") {
-      return json(409, { error: "duplicate_match" });
-    }
-    if (err?.message === "empty_name") {
-      return json(400, { error: "player name required" });
-    }
-    return json(500, { error: "internal_error" });
+    // TEMP: bubble details so you can see it in the browser
+    return json(500, { error: "internal_error", name: err?.name || null, message: err?.message || null });
   }
 };
