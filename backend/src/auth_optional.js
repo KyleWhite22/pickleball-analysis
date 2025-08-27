@@ -28,41 +28,30 @@ function _getAuthHeader(event) {
   return h.authorization || h.Authorization || null;
 }
 
-/**
- * getOptionalUserId(event) -> Promise<string|null>
- * - Reads Authorization: Bearer <ID_TOKEN> if present
- * - Verifies against Cognito issuer & audience
- * - Ensures token_use === 'id'
- * - Returns payload.sub (or cognito:username) on success; null otherwise
- */
+let _verify = null;
+
 async function getOptionalUserId(event) {
   try {
-    const auth = _getAuthHeader(event);
+    const auth = event.headers?.authorization || event.headers?.Authorization;
     if (!auth || !auth.startsWith('Bearer ')) return null;
 
-    // If misconfigured in env, fail soft to keep GETs public
-    if (!ISSUER || !AUDIENCE) return null;
+    // Lazy-load jose so missing deps don’t crash module init
+    if (!_verify) {
+      const rawIssuer = process.env.COGNITO_ISSUER_URL || '';
+      const ISSUER = rawIssuer.replace(/\/+$/, ''); // strip trailing slashes
+      const AUDIENCE = process.env.COGNITO_APP_CLIENT_ID || '';
+      if (!ISSUER || !AUDIENCE) return null;
 
-    const token = auth.slice(7).trim();
-    if (!token) return null;
+      const { createRemoteJWKSet, jwtVerify } = await import('jose');
+      const jwks = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`));
+      _verify = (token) => jwtVerify(token, jwks, { issuer: ISSUER, audience: AUDIENCE });
+    }
 
-    const { jwtVerify } = await _jose();
-    const jwks = await _getJwks();
-
-    const { payload } = await jwtVerify(token, jwks, {
-      issuer: ISSUER,
-      audience: AUDIENCE,
-      clockTolerance: '5s', // small skew tolerance
-      // algorithms: ['RS256'], // optional: Cognito uses RS256
-    });
-
-    // Only accept ID tokens (not access tokens)
-    if (payload.token_use && payload.token_use !== 'id') return null;
-
-    return payload.sub ?? payload['cognito:username'] ?? null;
+    const token = auth.slice(7);
+    const { payload } = await _verify(token);
+    return payload.sub || payload['cognito:username'] || null;
   } catch {
-    // Any error -> anonymous
-    return null;
+    return null; // anonymous on any failure
   }
 }
 

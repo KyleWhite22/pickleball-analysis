@@ -64,6 +64,7 @@ functions:
       - httpApi:
           path: /leagues
           method: GET
+          authorizer: jwtAuth
 
   listMatches:
     handler: src/matches_list.handler
