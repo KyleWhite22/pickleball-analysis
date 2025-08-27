@@ -1,3 +1,4 @@
+// src/App.tsx
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import AppShell from './ui/AppShell';
 import Login from './pages/Login';
@@ -10,17 +11,27 @@ import AuthCallback from './pages/AuthCallback';
 const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
   { path: '/auth/callback', element: <AuthCallback /> },
+
+  // PUBLIC app frame + pages
   {
     path: '/',
+    element: <AppShell />, // ⟵ no Protected here
+    children: [
+      { index: true, element: <Home /> },      // public browse (gated create in the component)
+      { path: 'metrics', element: <Metrics /> } // keep public if you want
+    ],
+  },
+
+  // AUTH-REQUIRED routes (only the ones that truly need it)
+  {
+    path: '/matches/new',
     element: (
       <Protected>
         <AppShell />
       </Protected>
     ),
     children: [
-      { index: true, element: <Home /> },
-      { path: 'matches/new', element: <LogMatch /> },
-      { path: 'metrics', element: <Metrics /> },
+      { index: true, element: <LogMatch /> },
     ],
   },
 ]);

@@ -1,34 +1,51 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Outlet } from "react-router-dom";
 import { fetchAuthSession, signOut, signInWithRedirect } from "aws-amplify/auth";
 
 export default function AppShell() {
   const [email, setEmail] = useState<string | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const s = await fetchAuthSession();
-        const id: any = s.tokens?.idToken?.payload;
-        setEmail(id?.email ?? null);
-      } catch {
-        setEmail(null);
-      }
-    })();
+  const refreshEmail = useCallback(async () => {
+    try {
+      const s = await fetchAuthSession();
+      const id: any = s.tokens?.idToken?.payload;
+      setEmail(id?.email ?? null);
+    } catch {
+      setEmail(null);
+    }
   }, []);
 
+  useEffect(() => {
+    // initial fetch
+    refreshEmail();
+
+    // keep header in sync when user returns to tab (after Hosted UI redirects)
+    const onFocus = () => refreshEmail();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refreshEmail]);
+
   async function handleSignIn() {
-    // go straight to Cognito Hosted UI sign-in
-    await signInWithRedirect();
+    if (authBusy) return;
+    setAuthBusy(true);
+    try {
+      await signInWithRedirect(); // navigates to Cognito Hosted UI
+    } finally {
+      // no-op; navigation takes over
+      setAuthBusy(false);
+    }
   }
 
   async function handleSignOut() {
+    if (authBusy) return;
+    setAuthBusy(true);
     try {
-      // revoke local (and Cognito) session
       await signOut({ global: true });
     } finally {
-      // immediately bounce to Hosted UI sign-in
+      // send them right back to the Hosted UI sign-in page
       await signInWithRedirect();
+      setAuthBusy(false);
     }
   }
 
@@ -55,17 +72,19 @@ export default function AppShell() {
                     <span className="hidden sm:inline text-sm text-gray-600">{email}</span>
                     <button
                       onClick={handleSignOut}
-                      className="rounded-xl px-3 py-1.5 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 active:bg-black transition"
+                      disabled={authBusy}
+                      className="rounded-xl px-3 py-1.5 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 active:bg-black transition disabled:opacity-60"
                     >
-                      Sign out
+                      {authBusy ? "…" : "Sign out"}
                     </button>
                   </>
                 ) : (
                   <button
                     onClick={handleSignIn}
-                    className="rounded-xl px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-cyan-600 hover:opacity-95 active:opacity-90 transition shadow-sm"
+                    disabled={authBusy}
+                    className="rounded-xl px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-cyan-600 hover:opacity-95 active:opacity-90 transition shadow-sm disabled:opacity-60"
                   >
-                    Sign in
+                    {authBusy ? "…" : "Sign in"}
                   </button>
                 )}
               </div>
