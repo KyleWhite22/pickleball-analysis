@@ -1,5 +1,6 @@
 // src/pages/Home.tsx
 import { useState, useEffect } from "react";
+import { signInWithRedirect, fetchAuthSession } from "aws-amplify/auth";
 import {
   listLeagues,
   listPublicLeagues,
@@ -14,6 +15,9 @@ import {
 } from "../lib/api";
 
 export default function Home() {
+  // auth (guest-friendly)
+  const [signedIn, setSignedIn] = useState(false);
+
   // data
   const [leagues, setLeagues] = useState<League[]>([]);
   const [publicLeagues, setPublicLeagues] = useState<League[]>([]);
@@ -37,38 +41,54 @@ export default function Home() {
   const [sa, setSa] = useState<number | "">("");
   const [sb, setSb] = useState<number | "">("");
 
-  // is the currently selected league one of "yours" (i.e., owned by caller)?
+  // are we the owner of the selected league?
   const ownsSelected =
     !!selectedLeagueId && leagues.some((l) => l.leagueId === selectedLeagueId);
 
-  // Load "your leagues" (token attached automatically if signed in)
+  // Detect signed-in state (no redirect — guests can browse)
   useEffect(() => {
     (async () => {
       try {
-        const rows = await listLeagues();
+        const s = await fetchAuthSession();
+        setSignedIn(!!s.tokens?.idToken);
+      } catch {
+        setSignedIn(false);
+      }
+    })();
+  }, []);
+
+  // Load "your leagues" (if signed in, token is attached by buildHeaders())
+  useEffect(() => {
+    (async () => {
+      try {
+        const rows = await listLeagues(); // guests likely get []
         setLeagues(rows);
-        if (!selectedLeagueId && rows.length) {
-          const remembered = localStorage.getItem("leagueId");
-          const initial =
-            remembered && rows.find((l) => l.leagueId === remembered)
-              ? remembered
-              : rows[0].leagueId;
-          setSelectedLeagueId(initial);
+
+        // Prefer remembered selection if still valid
+        const remembered = localStorage.getItem("leagueId");
+        if (!selectedLeagueId) {
+          const candidate =
+            (remembered && rows.find((l) => l.leagueId === remembered)?.leagueId) ||
+            rows[0]?.leagueId ||
+            null;
+          if (candidate) setSelectedLeagueId(candidate);
         }
       } catch (err) {
         console.error(err);
+        setLeagues([]);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [signedIn]); // re-check when auth state changes
 
-  // Load public leagues
+  // Load public leagues (always)
   useEffect(() => {
     (async () => {
       try {
         const pubs = await listPublicLeagues();
         setPublicLeagues(pubs);
-        // If user had none and nothing selected yet, pick the first public
+
+        // If nothing selected yet, choose first public
         if (!selectedLeagueId && pubs.length) {
           setSelectedLeagueId(pubs[0].leagueId);
         }
@@ -114,6 +134,11 @@ export default function Home() {
 
   async function onCreateLeague() {
     if (!newLeagueName.trim()) return;
+    if (!signedIn) {
+      // Gate creation behind Hosted UI
+      await signInWithRedirect();
+      return;
+    }
     try {
       setCreating(true);
       const created = await apiCreateLeague(newLeagueName.trim(), visibility);
@@ -180,8 +205,8 @@ export default function Home() {
       <section>
         <h2 className="text-xl font-semibold mb-2">Leagues</h2>
 
-        {/* Create form */}
-        <div className="flex gap-2 items-center">
+        {/* Create form (gated) */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <input
             value={newLeagueName}
             onChange={(e) => setNewLeagueName(e.target.value)}
@@ -202,30 +227,38 @@ export default function Home() {
           <button
             disabled={creating || !newLeagueName.trim()}
             onClick={onCreateLeague}
-            className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
+            className="bg-emerald-600 text-white px-3 py-1 rounded disabled:opacity-50"
+            title={signedIn ? "Create a new league" : "Sign in to create a league"}
           >
-            {creating ? "Creating…" : "Create League"}
+            {signedIn ? (creating ? "Creating…" : "Create League") : "Sign in to create"}
           </button>
         </div>
+        {!signedIn && (
+          <p className="text-xs text-gray-600 mt-1">
+            Browsing as guest. Public leagues are available below.
+          </p>
+        )}
 
-        {/* Your leagues dropdown */}
-        <div className="mt-3">
-          <label className="block text-sm text-gray-600 mb-1">Your leagues</label>
-          <select
-            value={yourValue}
-            onChange={(e) => setSelectedLeagueId(e.target.value || null)}
-            className="border rounded px-2 py-1 w-full"
-          >
-            <option value="">— Select one of yours —</option>
-            {leagues.map((l) => (
-              <option key={l.leagueId} value={l.leagueId}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Your leagues (only meaningful when signed in) */}
+        {signedIn && (
+          <div className="mt-3">
+            <label className="block text-sm text-gray-600 mb-1">Your leagues</label>
+            <select
+              value={yourValue}
+              onChange={(e) => setSelectedLeagueId(e.target.value || null)}
+              className="border rounded px-2 py-1 w-full"
+            >
+              <option value="">— Select one of yours —</option>
+              {leagues.map((l) => (
+                <option key={l.leagueId} value={l.leagueId}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
-        {/* Public leagues dropdown */}
+        {/* Public leagues (always visible) */}
         <div className="mt-3">
           <label className="block text-sm text-gray-600 mb-1">Public Leagues</label>
           <select

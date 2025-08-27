@@ -62,7 +62,8 @@ async function asJson<T>(res: Response): Promise<T> {
 /** GET /leagues → { leagues } (public; token optional for owner extras) */
 export async function listLeagues(): Promise<League[]> {
   const res = await fetch(`${BASE}/leagues`, { headers: await buildHeaders() });
-  return asJson<League[]>(res); // <-- not { ownerId, leagues }
+  if (res.status === 401) return [];  // guests get an empty “Your leagues”
+  return asJson<League[]>(res);
 }
 
 /** POST /leagues (JWT required) body: { name, visibility } */
