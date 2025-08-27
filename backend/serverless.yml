@@ -3,7 +3,7 @@ service: pickle-api
 params:
   dev:
     COGNITO_ISSUER_URL: https://cognito-idp.us-east-2.amazonaws.com/us-east-2_wvWmECk8W
-    COGNITO_APP_CLIENT_ID: 5srl4gktjb9bvkm3n32c1ld
+    COGNITO_APP_CLIENT_ID: 5srl4gktjb9bvkm3np3n32c1ld
   prod:
     COGNITO_ISSUER_URL: https://cognito-idp.us-east-2.amazonaws.com/us-east-2_wvWmECk8W
     COGNITO_APP_CLIENT_ID: 5srl4gktjb9bvkm3np3n32c1ld
