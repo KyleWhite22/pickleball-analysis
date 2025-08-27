@@ -20,8 +20,10 @@ async function loadLeagueMeta(leagueId) {
   }));
   return r.Item ? unmarshall(r.Item) : null;
 }
-function canView(meta, userId) {
-  return meta.visibility === "public" || (userId && userId === meta.ownerId);
+function canView(meta, viewerId) {
+  const vis = (meta?.visibility || 'private').toLowerCase();
+  if (vis === 'public') return true;                 // anyone can view public
+  return !!viewerId && viewerId === meta?.ownerId;   // only owner can view private
 }
 
 exports.handler = async (event) => {
@@ -29,7 +31,7 @@ exports.handler = async (event) => {
     const leagueId = event.pathParameters?.id;
     if (!leagueId) return json(400, { error: "leagueId required" });
 
-    const viewerId = event.queryStringParameters?.userId || null;
+    const viewerId = getUserId(event)
 
     const meta = await loadLeagueMeta(leagueId);
     if (!meta) return json(404, { error: "not_found" });

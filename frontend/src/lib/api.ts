@@ -1,6 +1,5 @@
 // src/lib/api.ts
-import { getIdToken } from "./auth";
-
+import { getIdToken, getUserId } from "./auth";
 const BASE = (import.meta.env.VITE_API_URL as string).replace(/\/+$/, "");
 
 // ---------- Types ----------
@@ -41,7 +40,7 @@ export type Player = { playerId: string; name: string };
 // ---------- Helpers ----------
 async function buildHeaders(contentType?: string): Promise<HeadersInit> {
   const h: Record<string, string> = {};
-  const tok = await getIdToken();             // ID token expected by API GW authorizer
+  const tok = await getIdToken();
   if (tok) h.Authorization = `Bearer ${tok}`;
   if (contentType) h["Content-Type"] = contentType;
   return h;
@@ -68,13 +67,13 @@ export async function listLeagues(): Promise<League[]> {
 export async function createLeague(
   name: string,
   visibility: "public" | "private" = "private"
-): Promise<League> {
+) {
   const res = await fetch(`${BASE}/leagues`, {
     method: "POST",
     headers: await buildHeaders("application/json"),
-    body: JSON.stringify({ name, visibility }), // ownerId comes from JWT on the server
+    body: JSON.stringify({ name, visibility }),
   });
-  return asJson<League>(res);
+  return asJson(res);
 }
 
 /** POST /join/{code} → { joined: true, leagueId, userId }  (public) */
@@ -90,10 +89,10 @@ export async function joinByCode(code: string, userId: string) {
 // ---------- Matches ----------
 /** POST /leagues/{id}/matches  body: { player1Name, player2Name, score1, score2 } (JWT required) */
 export async function createMatch(leagueId: string, payload: any) {
-  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}/matches`, {
+  const res = await fetch(`${BASE}/leagues/${leagueId}/matches`, {
     method: "POST",
     headers: await buildHeaders("application/json"),
-    body: JSON.stringify(payload), // server sets createdBy from JWT
+    body: JSON.stringify(payload),
   });
   return asJson(res);
 }
@@ -109,21 +108,23 @@ export async function listMatches(leagueId: string): Promise<Match[]> {
 
 // ---------- Standings ----------
 /** GET /leagues/{id}/standings → { leagueId, standings, totalMatches } (public; server enforces privacy if you add it) */
-export async function getStandings(leagueId: string): Promise<Standing[]> {
-  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}/standings`, {
-    headers: await buildHeaders(),
-  });
-  const data = await asJson<{ leagueId: string; standings: Standing[]; totalMatches: number }>(res);
+export async function getStandings(leagueId: string) {
+  const viewerId = await getUserId();
+  const url = `${BASE}/leagues/${encodeURIComponent(leagueId)}/standings` +
+              (viewerId ? `?userId=${encodeURIComponent(viewerId)}` : "");
+  const res = await fetch(url, { headers: await buildHeaders() });
+  const data = await asJson<{ standings: any[] }>(res);
   return data.standings ?? [];
 }
 
 // ---------- Players (for autocomplete) ----------
 /** GET /leagues/{id}/players → { leagueId, players } (public; server can enforce privacy) */
-export async function listPlayers(leagueId: string): Promise<Player[]> {
-  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}/players`, {
-    headers: await buildHeaders(),
-  });
-  const data = await asJson<{ leagueId: string; players: Player[] }>(res);
+export async function listPlayers(leagueId: string) {
+  const viewerId = await getUserId();
+  const url = `${BASE}/leagues/${encodeURIComponent(leagueId)}/players` +
+              (viewerId ? `?userId=${encodeURIComponent(viewerId)}` : "");
+  const res = await fetch(url, { headers: await buildHeaders() });
+  const data = await asJson<{ players: any[] }>(res);
   return data.players ?? [];
 }
 
@@ -139,10 +140,11 @@ export async function deleteLastMatch(leagueId: string) {
 
 /** GET /leagues/{id} → league meta (public) */
 export async function getLeague(leagueId: string) {
-  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}`, {
-    headers: await buildHeaders(),
-  });
-  return asJson<League>(res);
+  const viewerId = await getUserId();
+  const url = `${BASE}/leagues/${encodeURIComponent(leagueId)}` +
+              (viewerId ? `?userId=${encodeURIComponent(viewerId)}` : "");
+  const res = await fetch(url, { headers: await buildHeaders() });
+  return asJson(res);
 }
 
 /** PATCH /leagues/{id}  body: { name } */

@@ -1,3 +1,4 @@
+// src/league_invite_rotate.js
 const {
   DynamoDBClient,
   UpdateItemCommand,
@@ -12,25 +13,30 @@ const TABLE = process.env.TABLE_NAME;
 
 const json = (code, body) => ({
   statusCode: code,
-  headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+  headers: {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+  },
   body: JSON.stringify(body),
 });
 
 function newInvite(len = 5) {
-  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // avoiding O/0 I/1
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // avoid O/0 I/1
   let out = "";
   for (let i = 0; i < len; i++) out += chars[(Math.random() * chars.length) | 0];
   return out;
 }
 
 async function inviteExists(code) {
-  const q = await ddb.send(new QueryCommand({
-    TableName: TABLE,
-    IndexName: "GSI2",
-    KeyConditionExpression: "GSI2PK = :pk",
-    ExpressionAttributeValues: { ":pk": { S: `INVITE#${code}` } },
-    Limit: 1,
-  }));
+  const q = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: "GSI2",
+      KeyConditionExpression: "GSI2PK = :pk",
+      ExpressionAttributeValues: { ":pk": { S: `INVITE#${code}` } },
+      Limit: 1,
+    })
+  );
   return q.Items && q.Items.length > 0;
 }
 
@@ -39,20 +45,23 @@ exports.handler = async (event) => {
     const leagueId = event.pathParameters?.id;
     if (!leagueId) return json(400, { error: "leagueId required" });
 
-    // 🔐 owner check via JWT
+    // 🔐 caller from JWT
     const userId = getUserId(event);
     if (!userId) return json(401, { error: "unauthorized" });
 
-    const cur = await ddb.send(new GetItemCommand({
-      TableName: TABLE,
-      Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
-      ProjectionExpression: "ownerId",
-    }));
+    // owner check
+    const cur = await ddb.send(
+      new GetItemCommand({
+        TableName: TABLE,
+        Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
+        ProjectionExpression: "ownerId",
+      })
+    );
     if (!cur.Item) return json(404, { error: "not_found" });
     const { ownerId } = unmarshall(cur.Item);
     if (ownerId !== userId) return json(403, { error: "forbidden" });
 
-    // generate a unique invite code (check GSI2)
+    // generate a unique invite code (very low collision odds)
     let code = newInvite();
     for (let i = 0; i < 5; i++) {
       if (!(await inviteExists(code))) break;
@@ -60,21 +69,30 @@ exports.handler = async (event) => {
     }
 
     const now = new Date().toISOString();
-    const res = await ddb.send(new UpdateItemCommand({
-      TableName: TABLE,
-      Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
-      UpdateExpression: "SET inviteCode = :c, GSI2PK = :g2pk, GSI2SK = :g2sk",
-      ExpressionAttributeValues: {
-        ":c":    { S: code },
-        ":g2pk": { S: `INVITE#${code}` },
-        ":g2sk": { S: `LEAGUE#${leagueId}` },
-      },
-      ConditionExpression: "attribute_exists(PK) AND attribute_exists(SK)",
-      ReturnValues: "ALL_NEW",
-    }));
+
+    // rotate code + keep GSI2 mirror fields in sync
+    const res = await ddb.send(
+      new UpdateItemCommand({
+        TableName: TABLE,
+        Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
+        UpdateExpression:
+          "SET inviteCode = :c, GSI2PK = :g2pk, GSI2SK = :g2sk",
+        ExpressionAttributeValues: {
+          ":c": { S: code },
+          ":g2pk": { S: `INVITE#${code}` },
+          ":g2sk": { S: `LEAGUE#${leagueId}` },
+        },
+        ConditionExpression: "attribute_exists(PK) AND attribute_exists(SK)",
+        ReturnValues: "ALL_NEW",
+      })
+    );
 
     const item = unmarshall(res.Attributes);
-    return json(200, { leagueId: item.leagueId, inviteCode: item.inviteCode, rotatedAt: now });
+    return json(200, {
+      leagueId: item.leagueId,
+      inviteCode: item.inviteCode,
+      rotatedAt: now,
+    });
   } catch (err) {
     console.error("league_invite_rotate error:", err);
     if (err?.name === "ConditionalCheckFailedException") {

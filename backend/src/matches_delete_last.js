@@ -1,3 +1,4 @@
+// src/matches_delete_last.js
 const {
   DynamoDBClient,
   QueryCommand,
@@ -12,16 +13,21 @@ const TABLE = process.env.TABLE_NAME;
 
 const json = (code, body) => ({
   statusCode: code,
-  headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+  headers: {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+  },
   body: JSON.stringify(body),
 });
 
 async function loadLeagueMeta(leagueId) {
-  const r = await ddb.send(new GetItemCommand({
-    TableName: TABLE,
-    Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
-    ProjectionExpression: "ownerId",
-  }));
+  const r = await ddb.send(
+    new GetItemCommand({
+      TableName: TABLE,
+      Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "METADATA" } },
+      ProjectionExpression: "ownerId",
+    })
+  );
   return r.Item ? unmarshall(r.Item) : null;
 }
 
@@ -30,39 +36,48 @@ exports.handler = async (event) => {
     const leagueId = event.pathParameters?.id;
     if (!leagueId) return json(400, { error: "leagueId required" });
 
-    // 🔐 derive user from JWT
+    // 🔐 who is calling?
     const userId = getUserId(event);
     if (!userId) return json(401, { error: "unauthorized" });
 
+    // 🔐 owner check
     const meta = await loadLeagueMeta(leagueId);
     if (!meta) return json(404, { error: "not_found" });
     if (userId !== meta.ownerId) return json(403, { error: "forbidden" });
 
-    // newest match first
-    const q = await ddb.send(new QueryCommand({
-      TableName: TABLE,
-      KeyConditionExpression: "PK = :pk AND begins_with(SK, :p)",
-      ExpressionAttributeValues: {
-        ":pk": { S: `LEAGUE#${leagueId}` },
-        ":p":  { S: "MATCH#" },
-      },
-      ScanIndexForward: false,
-      Limit: 1,
-    }));
+    // newest match first (only MATCH# SKs)
+    const q = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: "PK = :pk AND begins_with(SK, :p)",
+        ExpressionAttributeValues: {
+          ":pk": { S: `LEAGUE#${leagueId}` },
+          ":p": { S: "MATCH#" },
+        },
+        ScanIndexForward: false,
+        Limit: 1,
+        ConsistentRead: true, // ensure we see the latest write
+      })
+    );
 
-    if (!q.Items || q.Items.length === 0) return json(404, { error: "no_matches" });
+    if (!q.Items || q.Items.length === 0) {
+      return json(404, { error: "no_matches" });
+    }
 
-    const latest = unmarshall(q.Items[0]); // includes SK and matchId
+    const latest = unmarshall(q.Items[0]); // contains SK & matchId
 
-    await ddb.send(new DeleteItemCommand({
-      TableName: TABLE,
-      Key: {
-        PK: { S: `LEAGUE#${leagueId}` },
-        SK: { S: latest.SK }, // safe because we didn't project it out
-      },
-      ConditionExpression: "begins_with(SK, :p)",
-      ExpressionAttributeValues: { ":p": { S: "MATCH#" } },
-    }));
+    await ddb.send(
+      new DeleteItemCommand({
+        TableName: TABLE,
+        Key: {
+          PK: { S: `LEAGUE#${leagueId}` },
+          SK: { S: latest.SK },
+        },
+        // sanity check we only delete a MATCH# item
+        ConditionExpression: "begins_with(SK, :p)",
+        ExpressionAttributeValues: { ":p": { S: "MATCH#" } },
+      })
+    );
 
     return json(200, { ok: true, deletedMatchId: latest.matchId, leagueId });
   } catch (err) {
