@@ -1,6 +1,6 @@
-﻿const { DynamoDBClient, QueryCommand } = require("@aws-sdk/client-dynamodb");
+﻿// src/leagues_list.js
+const { DynamoDBClient, QueryCommand } = require("@aws-sdk/client-dynamodb");
 const { unmarshall } = require("@aws-sdk/util-dynamodb");
-const { getOptionalUserId } = require("./auth_optional");
 
 const ddb = new DynamoDBClient({});
 const TABLE = process.env.TABLE_NAME;
@@ -10,48 +10,45 @@ const json = (code, body) => ({
   headers: {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    // Response varies with presence of Authorization header
-    "Vary": "Authorization",
   },
   body: JSON.stringify(body),
 });
 
+function getUserIdFromAuthorizer(event) {
+  const claims = event?.requestContext?.authorizer?.jwt?.claims || {};
+  return claims.sub || claims["cognito:username"] || null;
+}
+
 /**
  * GET /leagues
- * Public endpoint. If caller includes a valid ID token, return ONLY their leagues.
- * If anonymous, return [] (use /leagues/public for public discovery).
- * Response: League[]  (array, not wrapped)
+ * Protected by API Gateway JWT authorizer (authorizer: jwtAuth).
+ * Returns ONLY the leagues owned by the caller.
+ * Response: League[] (array, not wrapped)
  */
 exports.handler = async (event) => {
   try {
-    const userId = await getOptionalUserId(event);
-    if (!userId) {
-      // Anonymous: no owner context → empty list
-      return json(200, []);
-    }
+    const userId = getUserIdFromAuthorizer(event);
+    if (!userId) return json(401, { error: "unauthorized" }); // shouldn't happen if authorizer is on
 
-    // Query GSI1 by owner
-    const cmd = new QueryCommand({
+    const res = await ddb.send(new QueryCommand({
       TableName: TABLE,
       IndexName: "GSI1",
       KeyConditionExpression: "GSI1PK = :pk",
       ExpressionAttributeValues: {
         ":pk": { S: `OWNER#${userId}` },
       },
-      // newest first if GSI1SK = createdAt
-      ScanIndexForward: false,
+      ScanIndexForward: false, // newest first if GSI1SK = createdAt
       Limit: 50,
       ProjectionExpression: "leagueId, #n, ownerId, createdAt, visibility",
       ExpressionAttributeNames: { "#n": "name" },
-    });
+    }));
 
-    const res = await ddb.send(cmd);
     const leagues = (res.Items || []).map((it) => {
       const x = unmarshall(it);
       return {
         leagueId: x.leagueId,
         name: x.name,
-        ownerId: x.ownerId,       // may be hidden in other endpoints for non-owners
+        ownerId: x.ownerId,
         createdAt: x.createdAt,
         visibility: x.visibility, // 'public' | 'private'
       };
