@@ -61,29 +61,25 @@ async function getOrCreatePlayer(leagueId, nameRaw) {
   const nameNorm = normName(nameRaw);
   if (!nameNorm) throw new Error("empty_name");
 
-  const q = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE,
-      KeyConditionExpression: "PK = :pk AND begins_with(SK, :pref)",
-      ExpressionAttributeValues: {
-        ":pk": { S: `LEAGUE#${leagueId}` },
-        ":pref": { S: "PLAYER#" },
-      },
-      ProjectionExpression: "SK,#nm,#nn",
-      ExpressionAttributeNames: { "#nm": "name", "#nn": "nameNorm" },
-      Limit: 500,
-    })
-  );
-
-  const maybe = (q.Items || [])
-    .map(unmarshall)
-    .find((p) => p.nameNorm === nameNorm);
-
+  // Look for an existing normalized name
+  const q = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    KeyConditionExpression: "PK = :pk AND begins_with(SK, :pref)",
+    ExpressionAttributeValues: {
+      ":pk": { S: `LEAGUE#${leagueId}` },
+      ":pref": { S: "PLAYER#" },
+    },
+    ProjectionExpression: "SK,#nm,#nn",
+    ExpressionAttributeNames: { "#nm": "name", "#nn": "nameNorm" },
+    Limit: 500,
+  }));
+  const maybe = (q.Items || []).map(unmarshall).find(p => p.nameNorm === nameNorm);
   if (maybe) {
     const playerId = (maybe.SK || "").split("#")[1];
     return { playerId, name: maybe.name };
   }
 
+  // Create new
   const playerId = rid(10);
   const now = new Date().toISOString();
   const item = {
@@ -95,16 +91,36 @@ async function getOrCreatePlayer(leagueId, nameRaw) {
     createdAt: now,
   };
 
-  await ddb.send(
-    new PutItemCommand({
+  try {
+    await ddb.send(new PutItemCommand({
       TableName: TABLE,
       Item: marshall(item),
-      ConditionExpression:
-        "attribute_not_exists(PK) AND attribute_not_exists(SK)",
-    })
-  );
-
-  return { playerId, name: item.name };
+      ConditionExpression: "attribute_not_exists(PK) AND attribute_not_exists(SK)",
+    }));
+    return { playerId, name: item.name };
+  } catch (e) {
+    // If a concurrent request inserted the same player, re-query and return that one
+    if (e?.name === "ConditionalCheckFailedException") {
+      const q2 = await ddb.send(new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: "PK = :pk AND begins_with(SK, :pref)",
+        ExpressionAttributeValues: {
+          ":pk": { S: `LEAGUE#${leagueId}` },
+          ":pref": { S: "PLAYER#" },
+        },
+        ProjectionExpression: "SK,#nm,#nn",
+        ExpressionAttributeNames: { "#nm": "name", "#nn": "nameNorm" },
+        Limit: 500,
+      }));
+      const again = (q2.Items || []).map(unmarshall).find(p => p.nameNorm === nameNorm);
+      if (again) {
+        const playerId2 = (again.SK || "").split("#")[1];
+        return { playerId: playerId2, name: again.name };
+      }
+    }
+    console.error("getOrCreatePlayer failed", { leagueId, nameRaw, err: e });
+    throw e;
+  }
 }
 
 exports.handler = async (event) => {
