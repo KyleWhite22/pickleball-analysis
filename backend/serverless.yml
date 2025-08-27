@@ -150,7 +150,9 @@ package:
 resources:
   Conditions:
     IsProd:
-      Fn::Equals: [ ${sls:stage}, prod ]
+      Fn::Equals:
+        - ${sls:stage}
+        - prod
 
   Resources:
     ApiApiMapping:

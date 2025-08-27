@@ -38,10 +38,10 @@ exports.handler = async (event) => {
       ownerId: userId,
       createdAt,
       visibility,
-      // GSI1: list by owner
+      // GSI1 for owner listing:
       GSI1PK: `OWNER#${userId}`,
       GSI1SK: createdAt,
-      // GSI3: list public
+      // GSI3 for public listing:
       ...(visibility === "public"
         ? { GSI3PK: "VISIBILITY#PUBLIC", GSI3SK: createdAt }
         : {}),
@@ -53,18 +53,10 @@ exports.handler = async (event) => {
       ConditionExpression: "attribute_not_exists(PK) AND attribute_not_exists(SK)",
     }));
 
-    return json(201, {
-      leagueId,
-      name,
-      ownerId: userId,
-      createdAt,
-      visibility,
-    });
+    return json(201, { leagueId, name, ownerId: userId, createdAt, visibility });
   } catch (err) {
     console.error("leagues_create error", err);
-    if (err?.name === "ConditionalCheckFailedException") {
-      return json(409, { error: "conflict" });
-    }
+    if (err?.name === "ConditionalCheckFailedException") return json(409, { error: "conflict" });
     return json(500, { error: "internal_error" });
   }
 };

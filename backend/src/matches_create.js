@@ -20,8 +20,9 @@ const json = (code, body) => ({
 });
 
 const userFromEvent = (event) => {
-  const claims = event?.requestContext?.authorizer?.jwt?.claims || {};
-  return claims.sub || claims["cognito:username"] || null;
+  const claims = event.requestContext?.authorizer?.jwt?.claims || {};
+const userId = claims.sub || claims['cognito:username'];
+if (userId !== meta.ownerId) return json(403, { error: 'forbidden' });
 };
 
 const asInt = (x) => {
@@ -37,13 +38,22 @@ function normName(s) {
 }
 
 async function loadLeagueMeta(leagueId) {
-  const r = await ddb.send(
-    new GetItemCommand({
-      TableName: TABLE,
-      Key: { PK: { S: `LEAGUE#${leagueId}` }, SK: { S: "META" } },
-      ProjectionExpression: "ownerId, visibility",
-    })
-  );
+  const baseKey = { PK: { S: `LEAGUE#${leagueId}` } };
+
+  // Try canonical key first
+  let r = await ddb.send(new GetItemCommand({
+    TableName: TABLE,
+    Key: { ...baseKey, SK: { S: "META" } },
+    ProjectionExpression: "ownerId, visibility",
+  }));
+  if (r.Item) return unmarshall(r.Item);
+
+  // TEMP fallback for any old data (optional):
+  r = await ddb.send(new GetItemCommand({
+    TableName: TABLE,
+    Key: { ...baseKey, SK: { S: "META" } },
+    ProjectionExpression: "ownerId, visibility",
+  }));
   return r.Item ? unmarshall(r.Item) : null;
 }
 
