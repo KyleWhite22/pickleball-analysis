@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { fetchAuthSession, signOut } from "aws-amplify/auth";
 
 export default function AppShell() {
