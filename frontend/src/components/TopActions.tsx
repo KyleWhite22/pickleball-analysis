@@ -1,7 +1,7 @@
 // src/components/TopActions.tsx
 import { useMemo, useState } from "react";
 import type { League } from "../lib/api";
-import { createMatch, deleteLastMatch, getStandings, listPlayers } from "../lib/api";
+import { createMatch, deleteLastMatch, listPlayers } from "../lib/api"; // removed getStandings
 import LeagueChooserModal from "./LeagueChooserModal";
 import LogMatchModal from "./LogMatchModal";
 import { usePlayers } from "../hooks/usePlayers";
@@ -12,7 +12,7 @@ type Props = {
   selectedLeagueId: string | null;
   onSelectLeague: (id: string) => void;
   ownsSelected: boolean;
-  onChanged?: () => void; // call to refresh standings after mutations
+  onChanged?: () => void;
 };
 
 export default function TopActions({
@@ -36,7 +36,6 @@ export default function TopActions({
     [selectedLeagueId, yourLeagues, publicLeagues]
   );
 
-  // Players for the modal (league-specific)
   const { players, loading: loadingPlayers, setPlayers } = usePlayers(selectedLeagueId);
 
   async function handleSubmit(p1: string, p2: string, s1: number, s2: number) {
@@ -49,14 +48,9 @@ export default function TopActions({
         score1: s1,
         score2: s2,
       });
-      // refresh lists used elsewhere
-      const [rows, pl] = await Promise.all([
-        getStandings(selectedLeagueId),
-        listPlayers(selectedLeagueId),
-      ]);
-      // push updates to local helpers
+      const pl = await listPlayers(selectedLeagueId);
       setPlayers(pl);
-      onChanged?.();
+      onChanged?.(); // let parent refresh standings
     } finally {
       setSubmitting(false);
     }
@@ -67,10 +61,7 @@ export default function TopActions({
     try {
       setUndoing(true);
       await deleteLastMatch(selectedLeagueId);
-      const [rows, pl] = await Promise.all([
-        getStandings(selectedLeagueId),
-        listPlayers(selectedLeagueId),
-      ]);
+      const pl = await listPlayers(selectedLeagueId);
       setPlayers(pl);
       onChanged?.();
     } finally {
@@ -80,7 +71,6 @@ export default function TopActions({
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5 backdrop-blur shadow-[0_10px_30px_rgba(0,0,0,.35)]">
-      {/* Selected league name prominent */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-xs text-zinc-400">Viewing league</div>
@@ -107,7 +97,6 @@ export default function TopActions({
         </div>
       </div>
 
-      {/* Modals */}
       <LeagueChooserModal
         open={chooseOpen}
         onClose={() => setChooseOpen(false)}

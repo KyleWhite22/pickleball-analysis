@@ -20,7 +20,15 @@ export default function LeagueChooserModal({
 }: Props) {
   if (!open) return null;
 
-  function List({ title, leagues }: { title: string; leagues: League[] }) {
+  function List({
+    title,
+    leagues,
+    kind,
+  }: {
+    title: string;
+    leagues: League[];
+    kind: "your" | "public";
+  }) {
     return (
       <div>
         <h4 className="mb-2 text-sm font-semibold text-zinc-300">{title}</h4>
@@ -40,7 +48,7 @@ export default function LeagueChooserModal({
               <div className="min-w-0">
                 <div className="truncate font-medium">{l.name}</div>
                 <div className="text-xs text-zinc-400">
-                  {l.isPublic ? "Public" : "Private"}
+                  {kind === "public" ? "Public" : "Private"}
                 </div>
               </div>
               <button
@@ -76,8 +84,8 @@ export default function LeagueChooserModal({
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <List title="Your Leagues" leagues={yourLeagues} />
-            <List title="Public Leagues" leagues={publicLeagues} />
+            <List title="Your Leagues" leagues={yourLeagues} kind="your" />
+            <List title="Public Leagues" leagues={publicLeagues} kind="public" />
           </div>
         </div>
       </div>
