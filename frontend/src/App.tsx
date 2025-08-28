@@ -2,7 +2,6 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import AppShell from './ui/AppShell';
 import Home from './pages/Home';
-import Protected from './auth/Protected';
 import AuthCallback from './pages/AuthCallback';
 import SignedOut from './pages/SignedOut';
 
