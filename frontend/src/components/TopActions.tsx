@@ -108,7 +108,6 @@ export default function TopActions({
               {selected ? selected.name : "No league selected"}
             </div>
 
-            {/* Visibility badge */}
             {selected && (
               <span
                 className={[
@@ -123,7 +122,6 @@ export default function TopActions({
               </span>
             )}
 
-            {/* Owner badge */}
             {selected && ownsSelected && (
               <span
                 className="inline-flex items-center rounded-full bg-blue-400/15 px-2 py-0.5 text-xs font-medium text-blue-300 ring-1 ring-blue-400/30"
@@ -137,43 +135,44 @@ export default function TopActions({
 
         {/* Action group */}
         <div className="w-full md:w-auto">
-  <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-    {/* Group the two neutral buttons together */}
-    <div className="flex overflow-hidden rounded-lg border border-white/10">
-      <button
-        onClick={() => setChooseOpen(true)}
-        className="min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
-      >
-        Choose league
-      </button>
-      <div className="h-auto w-px bg-white/10" />
-      <button
-        onClick={async () => {
-          if (!signedIn) { await signInWithRedirect(); return; }
-          setCreateOpen(true);
-        }}
-        className="min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
-      >
-        Create league
-      </button>
-    </div>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+            {/* Grouped neutral buttons with subtle divider */}
+            <div className="flex rounded-lg border border-white/10">
+              <button
+                onClick={() => setChooseOpen(true)}
+                className="min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+              >
+                Choose league
+              </button>
 
-    {/* Only show Log Match if you own this league */}
-    {ownsSelected && selectedLeagueId && (
-      <button
-        onClick={() => setLogOpen(true)}
-        className="rounded-lg bg-mint px-4 py-2 text-sm font-semibold text-black hover:brightness-95"
-      >
-        Log a Match
-      </button>
-    )}
-  </div>
-</div>
+              {/* stronger vertical divider */}
+              <div className="my-0 w-px bg-white/50" />
 
-        
+              <button
+                onClick={async () => {
+                  if (!signedIn) { await signInWithRedirect(); return; }
+                  setCreateOpen(true);
+                }}
+                className="min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+              >
+                Create league
+              </button>
+            </div>
+
+            {/* Only show Log Match if user owns the selected league */}
+            {ownsSelected && selectedLeagueId && (
+              <button
+                onClick={() => setLogOpen(true)}
+                className="rounded-lg bg-mint px-4 py-2 text-sm font-semibold text-black hover:brightness-95"
+              >
+                Log a Match
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Optional faint divider */}
+      {/* faint divider under top actions */}
       <div className="mt-4 h-px w-full bg-white/10" />
 
       {/* Modals */}
@@ -191,11 +190,11 @@ export default function TopActions({
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={(league, visibility) => {
-          onLeagueCreated?.(league); // parent adds to your list instantly
+          onLeagueCreated?.(league);
           if (visibility === "public") {
             setKnownPublicIds(prev => new Set(prev).add(league.leagueId));
           }
-          onSelectLeague(league.leagueId); // focus the new league
+          onSelectLeague(league.leagueId);
         }}
       />
 
