@@ -98,13 +98,6 @@ export default function AppShell() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="mx-auto max-w-6xl px-4 pb-6">
-        <div className="rounded-2xl border border-white/60 bg-white/60 backdrop-blur-md shadow-sm px-5 py-3 text-sm text-gray-600 flex items-center justify-between">
-          <span>© {new Date().getFullYear()} Pickle Stats</span>
-          <span className="text-xs text-gray-500">Built with love & 🍞</span>
-        </div>
-      </footer>
     </div>
   );
 }
