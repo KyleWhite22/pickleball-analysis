@@ -29,7 +29,6 @@ export default function Home() {
           onLeagueCreated={(league) => { addYourLeague(league); }}
           onRefreshLeagues={refreshLeagues}    
         />
-        <ActionsCard leagueId={selectedLeagueId} ownsSelected={ownsSelected} />
         <MetricsSection />
       </MetricsProvider>
     </div>
