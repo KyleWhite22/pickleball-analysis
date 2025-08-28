@@ -1,21 +1,28 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getStandings, type Standing } from "../lib/api";
 
 export function useStandings(leagueId: string | null) {
-  const [loading, setLoading] = useState(false);
   const [standings, setStandings] = useState<Standing[] | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  const refresh = useCallback(async () => {
     if (!leagueId) {
       setStandings(null);
       return;
     }
-    setLoading(true);
-    getStandings(leagueId)
-      .then(setStandings)
-      .catch(() => setStandings(null))
-      .finally(() => setLoading(false));
+    try {
+      setLoading(true);
+      const rows = await getStandings(leagueId);
+      setStandings(rows);
+    } catch (e) {
+      console.error(e);
+      setStandings(null);
+    } finally {
+      setLoading(false);
+    }
   }, [leagueId]);
 
-  return { standings, loading, setStandings };
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  return { standings, loading, refresh };
 }

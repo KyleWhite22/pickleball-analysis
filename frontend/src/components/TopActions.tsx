@@ -8,6 +8,7 @@ import LogMatchModal from "./LogMatchModal";
 import CreateLeagueModal from "./CreateLeagueModal";
 import { usePlayers } from "../hooks/usePlayers";
 import { useAuthEmail } from "../hooks/useAuthEmail";
+import { useMetrics } from "./metrics/MetricsProvider"; // 👈 for standings refresh
 
 type Props = {
   yourLeagues: League[];
@@ -15,8 +16,8 @@ type Props = {
   selectedLeagueId: string | null;
   onSelectLeague: (id: string) => void;
   ownsSelected: boolean;
-  onChanged?: () => void;
-  onLeagueCreated?: (league: League) => void; // parent (Home) will add it to yourLeagues immediately
+  onLeagueCreated?: (league: League) => void;
+  onRefreshLeagues?: () => Promise<void>; // optional: refresh league lists from server
 };
 
 export default function TopActions({
@@ -25,10 +26,11 @@ export default function TopActions({
   selectedLeagueId,
   onSelectLeague,
   ownsSelected,
-  onChanged,
+  onRefreshLeagues,
   onLeagueCreated,
 }: Props) {
   const { signedIn } = useAuthEmail();
+  const { refresh: refreshMetrics } = useMetrics(); // 👈 standings/metrics refresher
 
   const [chooseOpen, setChooseOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
@@ -76,9 +78,11 @@ export default function TopActions({
     try {
       setSubmitting(true);
       await createMatch(selectedLeagueId, { player1Name: p1, player2Name: p2, score1: s1, score2: s2 });
+      // refresh local player list used for datalist
       const pl = await listPlayers(selectedLeagueId);
       setPlayers(pl);
-      onChanged?.();
+      // refresh standings/metrics via provider
+      await refreshMetrics();
     } finally {
       setSubmitting(false);
     }
@@ -91,7 +95,7 @@ export default function TopActions({
       await deleteLastMatch(selectedLeagueId);
       const pl = await listPlayers(selectedLeagueId);
       setPlayers(pl);
-      onChanged?.();
+      await refreshMetrics(); // keep tiles in sync
     } finally {
       setUndoing(false);
     }
@@ -136,7 +140,7 @@ export default function TopActions({
         {/* Action group */}
         <div className="w-full md:w-auto">
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-            {/* Grouped neutral buttons with subtle divider */}
+            {/* Grouped neutral buttons with stronger divider */}
             <div className="flex rounded-lg border border-white/10">
               <button
                 onClick={() => setChooseOpen(true)}
@@ -189,12 +193,23 @@ export default function TopActions({
       <CreateLeagueModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={(league, visibility) => {
+        onCreated={async (league, visibility) => {
+          // Let parent add to "Your Leagues" immediately
           onLeagueCreated?.(league);
+
+          // Mark as public immediately if created public (for labeling)
           if (visibility === "public") {
             setKnownPublicIds(prev => new Set(prev).add(league.leagueId));
           }
+
+          // Select it so the user sees it right away
           onSelectLeague(league.leagueId);
+
+          // Ask parent to refresh league lists from the server (authoritative)
+          await onRefreshLeagues?.();
+
+          // And refresh metrics (new league might show empty standings etc.)
+          await refreshMetrics();
         }}
       />
 
