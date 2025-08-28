@@ -1,8 +1,9 @@
+// src/components/ActionsCard.tsx
 import { useState } from "react";
 import LogMatchModal from "./LogMatchModal";
-import { createMatch, deleteLastMatch, getStandings, listPlayers } from "../lib/api";
+import { createMatch, deleteLastMatch, listPlayers } from "../lib/api"; // ⬅ removed getStandings
 import { usePlayers } from "../hooks/usePlayers";
-import { useStandings } from "../hooks/useStandings";
+import { useMetrics } from "./metrics/MetricsProvider"; // ⬅ use provider refresh
 
 type Props = {
   leagueId: string | null;
@@ -15,21 +16,16 @@ export default function ActionsCard({ leagueId, ownsSelected }: Props) {
   const [undoing, setUndoing] = useState(false);
 
   const { players, loading: loadingPlayers, setPlayers } = usePlayers(leagueId);
-  const { setStandings } = useStandings(leagueId); // we only need setters to refresh
+  const { refresh } = useMetrics(); // ⬅ standings/metrics refresh
 
   async function handleSubmit(p1: string, p2: string, s1: number, s2: number) {
     if (!leagueId) return;
     try {
       setSubmitting(true);
-      await createMatch(leagueId, {
-        player1Name: p1,
-        player2Name: p2,
-        score1: s1,
-        score2: s2,
-      });
-      const [rows, pl] = await Promise.all([getStandings(leagueId), listPlayers(leagueId)]);
-      setStandings(rows);
+      await createMatch(leagueId, { player1Name: p1, player2Name: p2, score1: s1, score2: s2 });
+      const pl = await listPlayers(leagueId); // keep datalist fresh
       setPlayers(pl);
+      await refresh(); // ⬅ re-pull standings for all metric tiles
     } finally {
       setSubmitting(false);
     }
@@ -40,9 +36,9 @@ export default function ActionsCard({ leagueId, ownsSelected }: Props) {
     try {
       setUndoing(true);
       await deleteLastMatch(leagueId);
-      const [rows, pl] = await Promise.all([getStandings(leagueId), listPlayers(leagueId)]);
-      setStandings(rows);
+      const pl = await listPlayers(leagueId);
       setPlayers(pl);
+      await refresh(); // ⬅ re-pull standings
     } finally {
       setUndoing(false);
     }
