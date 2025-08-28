@@ -12,8 +12,8 @@ export default function Home() {
     selectedLeagueId,
     setSelectedLeagueId,
     ownsSelected,
-    addYourLeague,      // 👈 new
-    refreshLeagues,     // 👈 optional (not required)
+    addYourLeague,      // ✅ keep
+    // refreshLeagues,   // ❌ remove if unused
   } = useLeagues(signedIn);
 
   const [refreshKey, setRefreshKey] = useState(0);
@@ -35,9 +35,7 @@ export default function Home() {
         ownsSelected={ownsSelected}
         onChanged={onChanged}
         onLeagueCreated={(league) => {
-          addYourLeague(league);             // 👈 update list immediately
-          // Optionally, also refresh from server:
-          // refreshLeagues();
+          addYourLeague(league);             // update list immediately
         }}
       />
 
