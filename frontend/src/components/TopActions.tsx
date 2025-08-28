@@ -36,26 +36,24 @@ export default function TopActions({
   const [submitting, setSubmitting] = useState(false);
   const [undoing, setUndoing] = useState(false);
 
-  // ✅ track newly-created public leagues locally to label correctly right away
+  // Track newly-created public leagues locally so labels are correct immediately
   const [knownPublicIds, setKnownPublicIds] = useState<Set<string>>(() => new Set());
 
   const ownedIds = useMemo(
     () => new Set(yourLeagues.map((l) => l.leagueId)),
     [yourLeagues]
   );
-  // server-provided public ids
   const publicIdsFromServer = useMemo(
     () => new Set(publicLeagues.map((l) => l.leagueId)),
     [publicLeagues]
   );
-  // ✅ union set: server public + locally-known public
   const allPublicIds = useMemo(() => {
     const s = new Set(publicIdsFromServer);
     for (const id of knownPublicIds) s.add(id);
     return s;
   }, [publicIdsFromServer, knownPublicIds]);
 
-  // Public list for chooser WITHOUT owned leagues (to avoid duplicates)
+  // Public list for chooser WITHOUT your own leagues (no duplicates)
   const publicForChooser = useMemo(
     () => publicLeagues.filter((l) => !ownedIds.has(l.leagueId)),
     [publicLeagues, ownedIds]
@@ -68,6 +66,8 @@ export default function TopActions({
         : null,
     [selectedLeagueId, yourLeagues, publicLeagues]
   );
+
+  const isSelectedPublic = selected ? allPublicIds.has(selected.leagueId) : false;
 
   const { players, loading: loadingPlayers, setPlayers } = usePlayers(selectedLeagueId);
 
@@ -99,41 +99,82 @@ export default function TopActions({
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5 backdrop-blur shadow-[0_10px_30px_rgba(0,0,0,.35)]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Header: Selected league + badges */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <div className="text-xs text-zinc-400">Viewing league</div>
-          <div className="truncate text-xl font-semibold">
-            {selected ? selected.name : "No league selected"}
+          <div className="mt-0.5 flex flex-wrap items-center gap-2">
+            <div className="truncate text-xl font-semibold md:text-2xl">
+              {selected ? selected.name : "No league selected"}
+            </div>
+
+            {/* Visibility badge */}
+            {selected && (
+              <span
+                className={[
+                  "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                  isSelectedPublic
+                    ? "bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-400/30"
+                    : "bg-zinc-400/15 text-zinc-300 ring-1 ring-white/15",
+                ].join(" ")}
+                title={isSelectedPublic ? "Public league" : "Private league"}
+              >
+                {isSelectedPublic ? "Public" : "Private"}
+              </span>
+            )}
+
+            {/* Owner badge */}
+            {selected && ownsSelected && (
+              <span
+                className="inline-flex items-center rounded-full bg-blue-400/15 px-2 py-0.5 text-xs font-medium text-blue-300 ring-1 ring-blue-400/30"
+                title="You own this league"
+              >
+                Owner
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setChooseOpen(true)}
-            className="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
-          >
-            Choose league
-          </button>
+        {/* Action group */}
+        <div className="w-full md:w-auto">
+  <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+    {/* Group the two neutral buttons together */}
+    <div className="flex overflow-hidden rounded-lg border border-white/10">
+      <button
+        onClick={() => setChooseOpen(true)}
+        className="min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+      >
+        Choose league
+      </button>
+      <div className="h-auto w-px bg-white/10" />
+      <button
+        onClick={async () => {
+          if (!signedIn) { await signInWithRedirect(); return; }
+          setCreateOpen(true);
+        }}
+        className="min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+      >
+        Create league
+      </button>
+    </div>
 
-          <button
-            onClick={async () => {
-              if (!signedIn) { await signInWithRedirect(); return; }
-              setCreateOpen(true);
-            }}
-            className="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
-          >
-            Create league
-          </button>
+    {/* Only show Log Match if you own this league */}
+    {ownsSelected && selectedLeagueId && (
+      <button
+        onClick={() => setLogOpen(true)}
+        className="rounded-lg bg-mint px-4 py-2 text-sm font-semibold text-black hover:brightness-95"
+      >
+        Log a Match
+      </button>
+    )}
+  </div>
+</div>
 
-          <button
-            onClick={() => setLogOpen(true)}
-            disabled={!ownsSelected || !selectedLeagueId}
-            className="rounded-lg bg-mint px-4 py-2 text-sm font-semibold text-black hover:brightness-95 disabled:opacity-50"
-          >
-            Log a Match
-          </button>
-        </div>
+        
       </div>
+
+      {/* Optional faint divider */}
+      <div className="mt-4 h-px w-full bg-white/10" />
 
       {/* Modals */}
       <LeagueChooserModal
@@ -143,21 +184,18 @@ export default function TopActions({
         publicLeagues={publicForChooser}
         selectedLeagueId={selectedLeagueId}
         onSelect={onSelectLeague}
-        publicIds={allPublicIds} // ✅ use union set
+        publicIds={allPublicIds}
       />
 
       <CreateLeagueModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={(league, visibility) => {
-          // parent adds to "Your Leagues"
-          onLeagueCreated?.(league);
-          // mark as public immediately if created as public
+          onLeagueCreated?.(league); // parent adds to your list instantly
           if (visibility === "public") {
             setKnownPublicIds(prev => new Set(prev).add(league.leagueId));
           }
-          // select it
-          onSelectLeague(league.leagueId);
+          onSelectLeague(league.leagueId); // focus the new league
         }}
       />
 

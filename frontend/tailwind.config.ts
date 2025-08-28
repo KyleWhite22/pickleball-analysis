@@ -5,11 +5,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        mint: "#8ef17d",
-        skyish: "#7db2ff",
-        ink: {
-          900: "#0b0b0e",
-          800: "#0f131d",
+        // keep existing class names like bg-mint, ring-mint, etc.
+        mint: {
+          DEFAULT: "#f97316", // orange-500
+          light:   "#fb923c", // orange-400
+          dark:    "#ea580c", // orange-600
         },
       },
     },

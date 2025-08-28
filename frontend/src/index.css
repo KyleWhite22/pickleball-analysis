@@ -1,13 +1,23 @@
 @import "tailwindcss";
+
 /* Design tokens for Tailwind v4 */
 @theme {
+  /* Background inks */
   --color-ink-900: #0b0b0e;
   --color-ink-800: #0f131d;
-  --color-mint: #8ef17d;
+
+  /* Brand accent (orange) — keep the "mint" name so you don't refactor classes */
+  --color-mint:       #f97316; /* base (orange-500) */
+  --color-mint-light: #fb923c; /* lighter (orange-400) */
+  --color-mint-dark:  #ea580c; /* darker (orange-600) */
+
+  /* Secondary accent (blue) */
   --color-skyish: #7db2ff;
 
+  /* Typography */
   --font-sans: "Inter", system-ui, sans-serif;
 }
 
+/* App baseline */
 html, body, #root { height: 100%; }
 body { @apply bg-ink-900 text-white font-sans antialiased; }
