@@ -1,9 +1,9 @@
 // src/components/ActionsCard.tsx
 import { useState } from "react";
 import LogMatchModal from "./LogMatchModal";
-import { createMatch, deleteLastMatch, listPlayers } from "../lib/api"; // ⬅ removed getStandings
+import { createMatch, deleteLastMatch, listPlayers } from "../lib/api";
 import { usePlayers } from "../hooks/usePlayers";
-import { useMetrics } from "./metrics/MetricsProvider"; // ⬅ use provider refresh
+import { useStandings } from "../hooks/useStandings"; // ← use hook directly
 
 type Props = {
   leagueId: string | null;
@@ -16,16 +16,18 @@ export default function ActionsCard({ leagueId, ownsSelected }: Props) {
   const [undoing, setUndoing] = useState(false);
 
   const { players, loading: loadingPlayers, setPlayers } = usePlayers(leagueId);
-  const { refresh } = useMetrics(); // ⬅ standings/metrics refresh
+  const { refresh } = useStandings(leagueId); // ← get manual refresh
 
   async function handleSubmit(p1: string, p2: string, s1: number, s2: number) {
     if (!leagueId) return;
     try {
       setSubmitting(true);
       await createMatch(leagueId, { player1Name: p1, player2Name: p2, score1: s1, score2: s2 });
-      const pl = await listPlayers(leagueId); // keep datalist fresh
+      // keep datalist fresh
+      const pl = await listPlayers(leagueId);
       setPlayers(pl);
-      await refresh(); // ⬅ re-pull standings for all metric tiles
+      // force standings reload
+      await refresh();
     } finally {
       setSubmitting(false);
     }
@@ -38,7 +40,7 @@ export default function ActionsCard({ leagueId, ownsSelected }: Props) {
       await deleteLastMatch(leagueId);
       const pl = await listPlayers(leagueId);
       setPlayers(pl);
-      await refresh(); // ⬅ re-pull standings
+      await refresh();
     } finally {
       setUndoing(false);
     }
