@@ -1,6 +1,7 @@
 import { useAuthEmail } from "../hooks/useAuthEmail";
 import { useLeagues } from "../hooks/useLeagues";
 import TopActions from "../components/TopActions";
+import ActionsCard from "../components/ActionsCard";
 import MetricsSection from "../components/metrics/MetricsSection";
 import { MetricsProvider } from "../components/metrics/MetricsProvider";
 
@@ -28,7 +29,8 @@ export default function Home() {
           onLeagueCreated={(league) => { addYourLeague(league); }}
           onRefreshLeagues={refreshLeagues}    
         />
-        <MetricsSection leagueId={selectedLeagueId} />
+        <ActionsCard leagueId={selectedLeagueId} ownsSelected={ownsSelected} />
+        <MetricsSection />
       </MetricsProvider>
     </div>
   );
