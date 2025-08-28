@@ -2,10 +2,12 @@
 import { useMemo, useState } from "react";
 import type { League } from "../lib/api";
 import { createMatch, deleteLastMatch, listPlayers } from "../lib/api";
+import { signInWithRedirect } from "aws-amplify/auth";
 import LeagueChooserModal from "./LeagueChooserModal";
 import LogMatchModal from "./LogMatchModal";
 import CreateLeagueModal from "./CreateLeagueModal";
 import { usePlayers } from "../hooks/usePlayers";
+import { useAuthEmail } from "../hooks/useAuthEmail";
 
 type Props = {
   yourLeagues: League[];
@@ -13,7 +15,8 @@ type Props = {
   selectedLeagueId: string | null;
   onSelectLeague: (id: string) => void;
   ownsSelected: boolean;
-  onChanged?: () => void; // tell parent to refresh standings
+  onChanged?: () => void;
+  onLeagueCreated?: (league: League) => void; // 👈 new
 };
 
 export default function TopActions({
@@ -23,7 +26,9 @@ export default function TopActions({
   onSelectLeague,
   ownsSelected,
   onChanged,
+  onLeagueCreated, // 👈 new
 }: Props) {
+  const { signedIn } = useAuthEmail();
   const [chooseOpen, setChooseOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -69,7 +74,6 @@ export default function TopActions({
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5 backdrop-blur shadow-[0_10px_30px_rgba(0,0,0,.35)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Selected league name prominent */}
         <div className="min-w-0">
           <div className="text-xs text-zinc-400">Viewing league</div>
           <div className="truncate text-xl font-semibold">
@@ -77,17 +81,16 @@ export default function TopActions({
           </div>
         </div>
 
-        {/* Actions row */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setChooseOpen(true)}
-            className="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
-          >
+          <button onClick={() => setChooseOpen(true)} className="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15">
             Choose league
           </button>
 
           <button
-            onClick={() => setCreateOpen(true)}
+            onClick={async () => {
+              if (!signedIn) { await signInWithRedirect(); return; }
+              setCreateOpen(true);
+            }}
             className="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
           >
             Create league
@@ -117,8 +120,8 @@ export default function TopActions({
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={(league) => {
-          onSelectLeague(league.leagueId); // immediately switch to the new league
-          onChanged?.(); // optional: let parent refresh standings
+          onLeagueCreated?.(league);     // 👈 tell parent to update lists
+          onSelectLeague(league.leagueId); // select it immediately
         }}
       />
 

@@ -1,4 +1,3 @@
-// src/pages/Home.tsx
 import { useEffect, useState } from "react";
 import { useAuthEmail } from "../hooks/useAuthEmail";
 import { useLeagues } from "../hooks/useLeagues";
@@ -13,6 +12,8 @@ export default function Home() {
     selectedLeagueId,
     setSelectedLeagueId,
     ownsSelected,
+    addYourLeague,      // 👈 new
+    refreshLeagues,     // 👈 optional (not required)
   } = useLeagues(signedIn);
 
   const [refreshKey, setRefreshKey] = useState(0);
@@ -33,9 +34,14 @@ export default function Home() {
         onSelectLeague={setSelectedLeagueId}
         ownsSelected={ownsSelected}
         onChanged={onChanged}
+        onLeagueCreated={(league) => {
+          addYourLeague(league);             // 👈 update list immediately
+          // Optionally, also refresh from server:
+          // refreshLeagues();
+        }}
       />
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_.9fr]">
+      <section>
         <StandingsCard key={`${selectedLeagueId ?? "none"}-${refreshKey}`} leagueId={selectedLeagueId} />
       </section>
     </div>

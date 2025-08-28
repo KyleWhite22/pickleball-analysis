@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+// src/hooks/useLeagues.ts
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { listLeagues, listPublicLeagues, type League } from "../lib/api";
 
 export function useLeagues(signedIn: boolean) {
@@ -6,41 +7,47 @@ export function useLeagues(signedIn: boolean) {
   const [publicLeagues, setPublicLeagues] = useState<League[]>([]);
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const rows = await listLeagues(); // [] for guests
-        setYourLeagues(rows);
-        const remembered = localStorage.getItem("leagueId");
-        if (!selectedLeagueId) {
-          const candidate =
-            (remembered && rows.find((l) => l.leagueId === remembered)?.leagueId) ||
-            rows[0]?.leagueId || null;
-          if (candidate) setSelectedLeagueId(candidate);
-        }
-      } catch {
-        setYourLeagues([]);
-      }
-    })();
-    // signedIn re-run picks up newly accessible leagues
-  }, [signedIn]); // eslint-disable-line react-hooks/exhaustive-deps
+  const refreshLeagues = useCallback(async () => {
+    try {
+      const [yours, pubs] = await Promise.all([listLeagues(), listPublicLeagues()]);
+      setYourLeagues(yours);
+      setPublicLeagues(pubs);
+    } catch {
+      setYourLeagues([]);
+      setPublicLeagues([]);
+    }
+  }, []);
 
   useEffect(() => {
+    // initial & on auth change
     (async () => {
-      try {
-        setPublicLeagues(await listPublicLeagues());
-      } catch {
-        setPublicLeagues([]);
+      await refreshLeagues();
+      const remembered = localStorage.getItem("leagueId");
+      if (!selectedLeagueId) {
+        const candidate =
+          (remembered && yourLeagues.find((l) => l.leagueId === remembered)?.leagueId) ||
+          yourLeagues[0]?.leagueId ||
+          null;
+        if (candidate) setSelectedLeagueId(candidate);
       }
     })();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedIn]); // re-run when auth state changes
 
   useEffect(() => {
     if (selectedLeagueId) localStorage.setItem("leagueId", selectedLeagueId);
   }, [selectedLeagueId]);
 
+  const addYourLeague = useCallback((league: League) => {
+    setYourLeagues((prev) => {
+      // de-dupe and put on top
+      const filtered = prev.filter((l) => l.leagueId !== league.leagueId);
+      return [league, ...filtered];
+    });
+  }, []);
+
   const ownsSelected = useMemo(
-    () => !!selectedLeagueId && yourLeagues.some(l => l.leagueId === selectedLeagueId),
+    () => !!selectedLeagueId && yourLeagues.some((l) => l.leagueId === selectedLeagueId),
     [selectedLeagueId, yourLeagues]
   );
 
@@ -50,5 +57,7 @@ export function useLeagues(signedIn: boolean) {
     selectedLeagueId,
     setSelectedLeagueId,
     ownsSelected,
+    refreshLeagues,
+    addYourLeague,
   };
 }
