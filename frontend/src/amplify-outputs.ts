@@ -15,8 +15,8 @@ export default {
             'https://pickle.kyle-white.com/auth/callback',
           ],
           redirectSignOut: [
-            'http://localhost:5173/',
-            'https://pickle.kyle-white.com/',
+            'http://localhost:5173/signed-out',
+            'https://pickle.kyle-white.com/signed-out',
           ],
           responseType: 'code',
         },

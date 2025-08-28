@@ -43,8 +43,6 @@ export default function AppShell() {
     try {
       await signOut({ global: true });
     } finally {
-      // send them right back to the Hosted UI sign-in page
-      await signInWithRedirect();
       setAuthBusy(false);
     }
   }
