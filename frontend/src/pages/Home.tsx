@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuthEmail } from "../hooks/useAuthEmail";
 import { useLeagues } from "../hooks/useLeagues";
-import StandingsCard from "../components/StandingsCard";
 import TopActions from "../components/TopActions";
+import MetricsSection from "../components/metrics/MetricsSection";
 
 export default function Home() {
   const { signedIn } = useAuthEmail();
@@ -39,9 +39,8 @@ export default function Home() {
         }}
       />
 
-      <section>
-        <StandingsCard key={`${selectedLeagueId ?? "none"}-${refreshKey}`} leagueId={selectedLeagueId} />
-      </section>
+       {/* Metrics */}
+      <MetricsSection leagueId={selectedLeagueId} />
     </div>
   );
 }
