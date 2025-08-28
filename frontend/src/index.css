@@ -6,10 +6,11 @@
   --color-ink-900: #0b0b0e;
   --color-ink-800: #0f131d;
 
-  /* Brand accent (orange) — keep the "mint" name so you don't refactor classes */
-  --color-mint:       #f97316; /* base (orange-500) */
-  --color-mint-light: #fb923c; /* lighter (orange-400) */
-  --color-mint-dark:  #ea580c; /* darker (orange-600) */
+  /* Brand accent (modern orange, still using `mint` alias) */
+  --color-mint:       #f97316; /* original bright orange */
+  --color-mint:       #e8792e; /* modern base: softer, less saturated */
+  --color-mint-light: #f59e60; /* lighter accent */
+  --color-mint-dark:  #c2410c; /* deeper, burnt orange */
 
   /* Secondary accent (blue) */
   --color-skyish: #7db2ff;
