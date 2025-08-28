@@ -1,5 +1,7 @@
 // src/components/LeagueChooserModal.tsx
 import type { League } from "../lib/api";
+import { createPortal } from "react-dom";
+
 
 type Props = {
   open: boolean;
@@ -67,28 +69,44 @@ export default function LeagueChooserModal({
     );
   }
 
-  return (
-    <div className="fixed inset-0 z-[100]">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="absolute inset-0 grid place-items-center p-4">
-        <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-white/5 p-5 shadow-[0_10px_30px_rgba(0,0,0,.35)]">
-          <div className="mb-3 flex items-start justify-between">
-            <h3 className="text-lg font-semibold">Choose League</h3>
-            <button
-              onClick={onClose}
-              className="rounded-lg px-2 py-1 text-sm text-zinc-300 hover:bg-white/10"
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
+  if (!open) return null;
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <List title="Your Leagues" leagues={yourLeagues} kind="your" />
-            <List title="Public Leagues" leagues={publicLeagues} kind="public" />
-          </div>
+return createPortal(
+  <div className="fixed inset-0 z-[9999]">
+    {/* Backdrop UNDER the dialog */}
+    <div
+      className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    />
+
+    {/* Dialog OVER the backdrop */}
+    <div className="absolute inset-0 z-[110] grid place-items-center p-4">
+      <div
+        className="w-full max-w-2xl rounded-2xl border border-white/10 bg-white/5 p-5 shadow-[0_10px_30px_rgba(0,0,0,.35)] pointer-events-auto"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Choose League"
+      >
+        <div className="mb-3 flex items-start justify-between">
+          <h3 className="text-lg font-semibold">Choose League</h3>
+          <button
+            onClick={onClose}
+            className="rounded-lg px-2 py-1 text-sm text-zinc-300 hover:bg-white/10"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <List title="Your Leagues" leagues={yourLeagues} kind="your" />
+          <List title="Public Leagues" leagues={publicLeagues} kind="public" />
         </div>
       </div>
     </div>
-  );
+  </div>,
+  document.body
+);
+
 }
