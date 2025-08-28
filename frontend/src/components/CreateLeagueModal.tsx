@@ -1,41 +1,38 @@
 // src/components/CreateLeagueModal.tsx
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { signInWithRedirect } from "aws-amplify/auth";
 import { useAuthEmail } from "../hooks/useAuthEmail";
 import { createLeague as apiCreateLeague, type League } from "../lib/api";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  onCreated: (league: League) => void;
+  // ✅ include visibility so parent can mark it public immediately
+  onCreated: (league: League, visibility: "public" | "private") => void;
 };
 
 export default function CreateLeagueModal({ open, onClose, onCreated }: Props) {
   const { signedIn } = useAuthEmail();
   const [name, setName] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("private");
-  const [creating, setCreating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   if (!open) return null;
 
-  async function handleCreate() {
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
     if (!name.trim()) return;
-    if (!signedIn) {
-      await signInWithRedirect();
-      return;
-    }
     try {
-      setCreating(true);
+      setSubmitting(true);
       const created = await apiCreateLeague(name.trim(), visibility);
       setName("");
-      onCreated(created);
+      onCreated(created, visibility); // ✅ pass visibility
       onClose();
     } catch (e) {
       console.error(e);
       alert("Could not create league. Are you signed in?");
     } finally {
-      setCreating(false);
+      setSubmitting(false);
     }
   }
 
@@ -93,10 +90,10 @@ export default function CreateLeagueModal({ open, onClose, onCreated }: Props) {
             <div className="pt-1">
               <button
                 onClick={handleCreate}
-                disabled={creating || !name.trim()}
+                disabled={submitting || !name.trim()}
                 className="inline-flex items-center justify-center rounded-lg bg-mint px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95 disabled:opacity-50"
               >
-                {creating ? "Creating…" : signedIn ? "Create League" : "Sign in to create"}
+                {submitting ? "Creating…" : signedIn ? "Create League" : "Sign in to create"}
               </button>
             </div>
           </div>

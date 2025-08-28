@@ -1,15 +1,14 @@
-// src/components/LeagueChooserModal.tsx
 import type { League } from "../lib/api";
 import { createPortal } from "react-dom";
-
 
 type Props = {
   open: boolean;
   onClose: () => void;
   yourLeagues: League[];
-  publicLeagues: League[];
+  publicLeagues: League[];           // already filtered for duplicates (see TopActions)
   selectedLeagueId: string | null;
   onSelect: (leagueId: string) => void;
+  publicIds: Set<string>;            // 👈 NEW: set of all public league IDs (including ones you own)
 };
 
 export default function LeagueChooserModal({
@@ -19,18 +18,11 @@ export default function LeagueChooserModal({
   publicLeagues,
   selectedLeagueId,
   onSelect,
+  publicIds,
 }: Props) {
   if (!open) return null;
 
-  function List({
-    title,
-    leagues,
-    kind,
-  }: {
-    title: string;
-    leagues: League[];
-    kind: "your" | "public";
-  }) {
+  function List({ title, leagues }: { title: string; leagues: League[] }) {
     return (
       <div>
         <h4 className="mb-2 text-sm font-semibold text-zinc-300">{title}</h4>
@@ -38,32 +30,35 @@ export default function LeagueChooserModal({
           {leagues.length === 0 && (
             <li className="text-xs text-zinc-500">No leagues.</li>
           )}
-          {leagues.map((l) => (
-            <li
-              key={l.leagueId}
-              className={[
-                "flex items-center justify-between rounded-lg border px-3 py-2",
-                "border-white/10 bg-black/30",
-                selectedLeagueId === l.leagueId ? "ring-2 ring-mint/40" : "",
-              ].join(" ")}
-            >
-              <div className="min-w-0">
-                <div className="truncate font-medium">{l.name}</div>
-                <div className="text-xs text-zinc-400">
-                  {kind === "public" ? "Public" : "Private"}
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  onSelect(l.leagueId);
-                  onClose();
-                }}
-                className="ml-3 rounded-md bg-mint px-3 py-1.5 text-sm font-semibold text-black hover:brightness-95"
+          {leagues.map((l) => {
+            const isPublic = publicIds.has(l.leagueId); // 👈 visibility derived from publicIds
+            return (
+              <li
+                key={l.leagueId}
+                className={[
+                  "flex items-center justify-between rounded-lg border px-3 py-2",
+                  "border-white/10 bg-black/30",
+                  selectedLeagueId === l.leagueId ? "ring-2 ring-mint/40" : "",
+                ].join(" ")}
               >
-                Choose
-              </button>
-            </li>
-          ))}
+                <div className="min-w-0">
+                  <div className="truncate font-medium">{l.name}</div>
+                  <div className="text-xs text-zinc-400">
+                    {isPublic ? "Public" : "Private"}
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    onSelect(l.leagueId);
+                    onClose();
+                  }}
+                  className="ml-3 rounded-md bg-mint px-3 py-1.5 text-sm font-semibold text-black hover:brightness-95"
+                >
+                  Choose
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </div>
     );
@@ -73,20 +68,21 @@ export default function LeagueChooserModal({
 
 return createPortal(
   <div className="fixed inset-0 z-[9999]">
-    {/* Backdrop UNDER the dialog */}
+    {/* Backdrop UNDER the dialog; gets clicks to close */}
     <div
-      className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-sm"
+      className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-sm pointer-events-auto"
       onClick={onClose}
     />
 
-    {/* Dialog OVER the backdrop */}
-    <div className="absolute inset-0 z-[110] grid place-items-center p-4">
+    {/* Centering layer ABOVE backdrop; never eats clicks */}
+    <div className="absolute inset-0 z-[110] grid place-items-center p-4 pointer-events-none">
+      {/* Panel gets the clicks */}
       <div
-        className="w-full max-w-2xl rounded-2xl border border-white/10 bg-white/5 p-5 shadow-[0_10px_30px_rgba(0,0,0,.35)] pointer-events-auto"
-        onClick={(e) => e.stopPropagation()}
+        className="pointer-events-auto w-full max-w-2xl rounded-2xl border border-white/10 bg-white/5 p-5 shadow-[0_10px_30px_rgba(0,0,0,.35)]"
         role="dialog"
         aria-modal="true"
         aria-label="Choose League"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-start justify-between">
           <h3 className="text-lg font-semibold">Choose League</h3>
@@ -100,13 +96,12 @@ return createPortal(
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <List title="Your Leagues" leagues={yourLeagues} kind="your" />
-          <List title="Public Leagues" leagues={publicLeagues} kind="public" />
+          <List title="Your Leagues" leagues={yourLeagues} />
+          <List title="Public Leagues" leagues={publicLeagues} />
         </div>
       </div>
     </div>
   </div>,
   document.body
 );
-
 }

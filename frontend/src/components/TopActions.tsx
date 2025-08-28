@@ -16,7 +16,7 @@ type Props = {
   onSelectLeague: (id: string) => void;
   ownsSelected: boolean;
   onChanged?: () => void;
-  onLeagueCreated?: (league: League) => void; // 👈 new
+  onLeagueCreated?: (league: League) => void; // parent (Home) will add it to yourLeagues immediately
 };
 
 export default function TopActions({
@@ -26,14 +26,40 @@ export default function TopActions({
   onSelectLeague,
   ownsSelected,
   onChanged,
-  onLeagueCreated, // 👈 new
+  onLeagueCreated,
 }: Props) {
   const { signedIn } = useAuthEmail();
+
   const [chooseOpen, setChooseOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [undoing, setUndoing] = useState(false);
+
+  // ✅ track newly-created public leagues locally to label correctly right away
+  const [knownPublicIds, setKnownPublicIds] = useState<Set<string>>(() => new Set());
+
+  const ownedIds = useMemo(
+    () => new Set(yourLeagues.map((l) => l.leagueId)),
+    [yourLeagues]
+  );
+  // server-provided public ids
+  const publicIdsFromServer = useMemo(
+    () => new Set(publicLeagues.map((l) => l.leagueId)),
+    [publicLeagues]
+  );
+  // ✅ union set: server public + locally-known public
+  const allPublicIds = useMemo(() => {
+    const s = new Set(publicIdsFromServer);
+    for (const id of knownPublicIds) s.add(id);
+    return s;
+  }, [publicIdsFromServer, knownPublicIds]);
+
+  // Public list for chooser WITHOUT owned leagues (to avoid duplicates)
+  const publicForChooser = useMemo(
+    () => publicLeagues.filter((l) => !ownedIds.has(l.leagueId)),
+    [publicLeagues, ownedIds]
+  );
 
   const selected = useMemo(
     () =>
@@ -82,7 +108,10 @@ export default function TopActions({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => setChooseOpen(true)} className="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15">
+          <button
+            onClick={() => setChooseOpen(true)}
+            className="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+          >
             Choose league
           </button>
 
@@ -111,17 +140,24 @@ export default function TopActions({
         open={chooseOpen}
         onClose={() => setChooseOpen(false)}
         yourLeagues={yourLeagues}
-        publicLeagues={publicLeagues}
+        publicLeagues={publicForChooser}
         selectedLeagueId={selectedLeagueId}
         onSelect={onSelectLeague}
+        publicIds={allPublicIds} // ✅ use union set
       />
 
       <CreateLeagueModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={(league) => {
-          onLeagueCreated?.(league);     // 👈 tell parent to update lists
-          onSelectLeague(league.leagueId); // select it immediately
+        onCreated={(league, visibility) => {
+          // parent adds to "Your Leagues"
+          onLeagueCreated?.(league);
+          // mark as public immediately if created as public
+          if (visibility === "public") {
+            setKnownPublicIds(prev => new Set(prev).add(league.leagueId));
+          }
+          // select it
+          onSelectLeague(league.leagueId);
         }}
       />
 
