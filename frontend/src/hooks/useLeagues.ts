@@ -18,25 +18,47 @@ export function useLeagues(signedIn: boolean) {
     }
   }, []);
 
-  useEffect(() => {
-    // initial & on auth change
-    (async () => {
-      await refreshLeagues();
+useEffect(() => {
+  (async () => {
+    try {
+      const [yours, pubs] = await Promise.all([listLeagues(), listPublicLeagues()]);
+      setYourLeagues(yours);
+      setPublicLeagues(pubs);
+
+      // ✅ Remembered ID from localStorage
       const remembered = localStorage.getItem("leagueId");
+
       if (!selectedLeagueId) {
-        const candidate =
-          (remembered && yourLeagues.find((l) => l.leagueId === remembered)?.leagueId) ||
-          yourLeagues[0]?.leagueId ||
-          null;
+        let candidate: string | null = null;
+
+        // 1. If remembered league still exists, use it
+        if (remembered) {
+          candidate =
+            yours.find((l) => l.leagueId === remembered)?.leagueId ||
+            pubs.find((l) => l.leagueId === remembered)?.leagueId ||
+            null;
+        }
+
+        // 2. If not, fall back to first of "yours", then first of "public"
+        if (!candidate) {
+          candidate = yours[0]?.leagueId || pubs[0]?.leagueId || null;
+        }
+
         if (candidate) setSelectedLeagueId(candidate);
       }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signedIn]); // re-run when auth state changes
+    } catch (err) {
+      console.error(err);
+      setYourLeagues([]);
+      setPublicLeagues([]);
+    }
+  })();
+}, [signedIn]); // re-run when auth state changes
 
-  useEffect(() => {
-    if (selectedLeagueId) localStorage.setItem("leagueId", selectedLeagueId);
-  }, [selectedLeagueId]);
+useEffect(() => {
+  if (selectedLeagueId) {
+    localStorage.setItem("leagueId", selectedLeagueId);
+  }
+}, [selectedLeagueId]);
 
   const addYourLeague = useCallback((league: League) => {
     setYourLeagues((prev) => {
