@@ -1,9 +1,10 @@
 // src/components/TopActions.tsx
 import { useMemo, useState } from "react";
 import type { League } from "../lib/api";
-import { createMatch, deleteLastMatch, listPlayers } from "../lib/api"; // removed getStandings
+import { createMatch, deleteLastMatch, listPlayers } from "../lib/api";
 import LeagueChooserModal from "./LeagueChooserModal";
 import LogMatchModal from "./LogMatchModal";
+import CreateLeagueModal from "./CreateLeagueModal";
 import { usePlayers } from "../hooks/usePlayers";
 
 type Props = {
@@ -12,7 +13,7 @@ type Props = {
   selectedLeagueId: string | null;
   onSelectLeague: (id: string) => void;
   ownsSelected: boolean;
-  onChanged?: () => void;
+  onChanged?: () => void; // tell parent to refresh standings
 };
 
 export default function TopActions({
@@ -25,6 +26,7 @@ export default function TopActions({
 }: Props) {
   const [chooseOpen, setChooseOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [undoing, setUndoing] = useState(false);
 
@@ -42,15 +44,10 @@ export default function TopActions({
     if (!selectedLeagueId) return;
     try {
       setSubmitting(true);
-      await createMatch(selectedLeagueId, {
-        player1Name: p1,
-        player2Name: p2,
-        score1: s1,
-        score2: s2,
-      });
+      await createMatch(selectedLeagueId, { player1Name: p1, player2Name: p2, score1: s1, score2: s2 });
       const pl = await listPlayers(selectedLeagueId);
       setPlayers(pl);
-      onChanged?.(); // let parent refresh standings
+      onChanged?.();
     } finally {
       setSubmitting(false);
     }
@@ -72,6 +69,7 @@ export default function TopActions({
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5 backdrop-blur shadow-[0_10px_30px_rgba(0,0,0,.35)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Selected league name prominent */}
         <div className="min-w-0">
           <div className="text-xs text-zinc-400">Viewing league</div>
           <div className="truncate text-xl font-semibold">
@@ -79,12 +77,20 @@ export default function TopActions({
           </div>
         </div>
 
+        {/* Actions row */}
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setChooseOpen(true)}
             className="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
           >
             Choose league
+          </button>
+
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+          >
+            Create league
           </button>
 
           <button
@@ -97,6 +103,7 @@ export default function TopActions({
         </div>
       </div>
 
+      {/* Modals */}
       <LeagueChooserModal
         open={chooseOpen}
         onClose={() => setChooseOpen(false)}
@@ -104,6 +111,15 @@ export default function TopActions({
         publicLeagues={publicLeagues}
         selectedLeagueId={selectedLeagueId}
         onSelect={onSelectLeague}
+      />
+
+      <CreateLeagueModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(league) => {
+          onSelectLeague(league.leagueId); // immediately switch to the new league
+          onChanged?.(); // optional: let parent refresh standings
+        }}
       />
 
       <LogMatchModal

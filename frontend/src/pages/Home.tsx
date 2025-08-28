@@ -38,7 +38,6 @@ export default function Home() {
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_.9fr]">
         <StandingsCard key={`${selectedLeagueId ?? "none"}-${refreshKey}`} leagueId={selectedLeagueId} />
-        <CreateLeagueCard onCreated={(league) => setSelectedLeagueId(league.leagueId)} />
       </section>
     </div>
   );
