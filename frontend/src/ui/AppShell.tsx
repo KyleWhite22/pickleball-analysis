@@ -43,21 +43,25 @@ export default function AppShell() {
   }
 
   async function handleSignOut() {
-    if (authBusy) return;
-    setAuthBusy(true);
+  if (authBusy) return;
+  setAuthBusy(true);
+  try {
+    await signOut({ global: true });
+  } catch (e) {
+    // fallback to local sign out
     try {
-      await signOut();
+      await signOut({ global: false });
     } catch {
-      try {
-        await signOut({ global: false });
-      } catch {
-        /* ignore */
-      }
-    } finally {
-      setAuthBusy(false);
-      refreshEmail();
+      /* ignore */
     }
+  } finally {
+    setAuthBusy(false);
+    // Clear client-side state
+    localStorage.removeItem("leagueId"); // ⬅ remove persisted league
+    // Optional: if you have a context/store, clear it here too
+    window.location.href = "/"; // ⬅ force redirect to home/landing
   }
+}
 
   return (
     <div className="relative min-h-[100dvh] bg-ink-900 text-white overflow-x-hidden">
