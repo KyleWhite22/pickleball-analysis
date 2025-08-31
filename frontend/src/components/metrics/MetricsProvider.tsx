@@ -1,6 +1,12 @@
-import { createContext, useContext, useMemo } from "react";
-import type { Standing } from "../../lib/api";
-import { useStandings } from "../../hooks/useStandings";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import { getStandings, type Standing } from "../../lib/api";
 
 type MetricsContextType = {
   standings: Standing[] | null;
@@ -8,27 +14,55 @@ type MetricsContextType = {
   refresh: () => Promise<void>;
 };
 
-const MetricsContext = createContext<MetricsContextType | null>(null);
+const MetricsCtx = createContext<MetricsContextType | null>(null);
 
 export function MetricsProvider({
   leagueId,
   children,
 }: {
   leagueId: string | null;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
-  const { standings, loading, refresh } = useStandings(leagueId);
+  const [standings, setStandings] = useState<Standing[] | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const value = useMemo(
-    () => ({ standings, loading, refresh }),
-    [standings, loading, refresh]
+  const fetchOnce = useCallback(async () => {
+    if (!leagueId) {
+      setStandings(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      const rows = await getStandings(leagueId);
+      setStandings(rows);
+    } finally {
+      setLoading(false);
+    }
+  }, [leagueId]);
+
+  // fetch when league changes
+  useEffect(() => {
+    void fetchOnce();
+  }, [fetchOnce]);
+
+  const refresh = useCallback(async () => {
+    await fetchOnce();
+  }, [fetchOnce]);
+
+  return (
+    <MetricsCtx.Provider value={{ standings, loading, refresh }}>
+      {children}
+    </MetricsCtx.Provider>
   );
-
-  return <MetricsContext.Provider value={value}>{children}</MetricsContext.Provider>;
 }
 
 export function useMetrics() {
-  const ctx = useContext(MetricsContext);
+  const ctx = useContext(MetricsCtx);
   if (!ctx) throw new Error("useMetrics must be used inside <MetricsProvider>");
   return ctx;
+}
+
+// Optional helper to avoid hard crash if used outside provider
+export function useMetricsOptional() {
+  return useContext(MetricsCtx);
 }

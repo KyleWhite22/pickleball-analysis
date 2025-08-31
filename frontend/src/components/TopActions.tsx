@@ -8,7 +8,8 @@ import LogMatchModal from "./LogMatchModal";
 import CreateLeagueModal from "./CreateLeagueModal";
 import { usePlayers } from "../hooks/usePlayers";
 import { useAuthEmail } from "../hooks/useAuthEmail";
-import { useMetrics } from "./metrics/MetricsProvider"; // 👈 for standings refresh
+import { useMetrics } from "./metrics/MetricsProvider";
+import type { MatchInputDoubles } from "../types/match";
 
 type Props = {
   yourLeagues: League[];
@@ -17,7 +18,7 @@ type Props = {
   onSelectLeague: (id: string) => void;
   ownsSelected: boolean;
   onLeagueCreated?: (league: League) => void;
-  onRefreshLeagues?: () => Promise<void>; // optional: refresh league lists from server
+  onRefreshLeagues?: () => Promise<void>;
 };
 
 export default function TopActions({
@@ -30,7 +31,7 @@ export default function TopActions({
   onLeagueCreated,
 }: Props) {
   const { signedIn } = useAuthEmail();
-  const { refresh: refreshMetrics } = useMetrics(); // 👈 standings/metrics refresher
+  const { refresh: refreshMetrics } = useMetrics();
 
   const [chooseOpen, setChooseOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
@@ -45,17 +46,21 @@ export default function TopActions({
     () => new Set(yourLeagues.map((l) => l.leagueId)),
     [yourLeagues]
   );
+
+  // Server-reported public IDs
   const publicIdsFromServer = useMemo(
     () => new Set(publicLeagues.map((l) => l.leagueId)),
     [publicLeagues]
   );
+
+  // Union set of all public IDs (server + locally-created)
   const allPublicIds = useMemo(() => {
     const s = new Set(publicIdsFromServer);
     for (const id of knownPublicIds) s.add(id);
     return s;
   }, [publicIdsFromServer, knownPublicIds]);
 
-  // Public list for chooser WITHOUT your own leagues (no duplicates)
+  // Public list for chooser WITHOUT your own leagues (avoid duplicates)
   const publicForChooser = useMemo(
     () => publicLeagues.filter((l) => !ownedIds.has(l.leagueId)),
     [publicLeagues, ownedIds]
@@ -71,17 +76,38 @@ export default function TopActions({
 
   const isSelectedPublic = selected ? allPublicIds.has(selected.leagueId) : false;
 
+  // Players for datalist in LogMatch modal
   const { players, loading: loadingPlayers, setPlayers } = usePlayers(selectedLeagueId);
 
-  async function handleSubmit(p1: string, p2: string, s1: number, s2: number) {
+  // ---- Doubles submit: (a1, a2) vs (b1, b2) with scores s1, s2 ----
+  async function handleSubmit(
+    a1: string,
+    a2: string,
+    b1: string,
+    b2: string,
+    s1: number,
+    s2: number
+  ) {
     if (!selectedLeagueId) return;
+    setSubmitting(true);
     try {
-      setSubmitting(true);
-      await createMatch(selectedLeagueId, { player1Name: p1, player2Name: p2, score1: s1, score2: s2 });
-      // refresh local player list used for datalist
-      const pl = await listPlayers(selectedLeagueId);
-      setPlayers(pl);
-      // refresh standings/metrics via provider
+      const payload: MatchInputDoubles = {
+        leagueId: selectedLeagueId,
+        teams: [
+          { players: [{ playerId: "", name: a1 }, { playerId: "", name: a2 }] },
+          { players: [{ playerId: "", name: b1 }, { playerId: "", name: b2 }] },
+        ],
+        score: { team1: s1, team2: s2 },
+      };
+      await createMatch(selectedLeagueId, payload as any); // API resolves/creates players server-side
+
+      // refresh player list for datalist
+      if (selectedLeagueId) {
+        const pl = await listPlayers(selectedLeagueId);
+        setPlayers(pl);
+      }
+
+      // refresh metrics/standings tiles
       await refreshMetrics();
     } finally {
       setSubmitting(false);
@@ -90,12 +116,16 @@ export default function TopActions({
 
   async function handleUndo() {
     if (!selectedLeagueId) return;
+    setUndoing(true);
     try {
-      setUndoing(true);
       await deleteLastMatch(selectedLeagueId);
+
+      // keep datalist fresh
       const pl = await listPlayers(selectedLeagueId);
       setPlayers(pl);
-      await refreshMetrics(); // keep tiles in sync
+
+      // and refresh tiles
+      await refreshMetrics();
     } finally {
       setUndoing(false);
     }
@@ -137,7 +167,7 @@ export default function TopActions({
           </div>
         </div>
 
-        {/* Action group */}
+        {/* Actions */}
         <div className="w-full md:w-auto">
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             {/* Grouped neutral buttons with stronger divider */}
@@ -154,7 +184,10 @@ export default function TopActions({
 
               <button
                 onClick={async () => {
-                  if (!signedIn) { await signInWithRedirect(); return; }
+                  if (!signedIn) {
+                    await signInWithRedirect();
+                    return;
+                  }
                   setCreateOpen(true);
                 }}
                 className="min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
@@ -163,7 +196,7 @@ export default function TopActions({
               </button>
             </div>
 
-            {/* Only show Log Match if user owns the selected league */}
+            {/* Log Match only if you own the league */}
             {ownsSelected && selectedLeagueId && (
               <button
                 onClick={() => setLogOpen(true)}
@@ -176,7 +209,7 @@ export default function TopActions({
         </div>
       </div>
 
-      {/* faint divider under top actions */}
+      {/* divider */}
       <div className="mt-4 h-px w-full bg-white/10" />
 
       {/* Modals */}
@@ -194,22 +227,13 @@ export default function TopActions({
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={async (league, visibility) => {
-          // Let parent add to "Your Leagues" immediately
           onLeagueCreated?.(league);
-
-          // Mark as public immediately if created public (for labeling)
           if (visibility === "public") {
-            setKnownPublicIds(prev => new Set(prev).add(league.leagueId));
+            setKnownPublicIds((prev) => new Set(prev).add(league.leagueId));
           }
-
-          // Select it so the user sees it right away
           onSelectLeague(league.leagueId);
-
-          // Ask parent to refresh league lists from the server (authoritative)
-          await onRefreshLeagues?.();
-
-          // And refresh metrics (new league might show empty standings etc.)
-          await refreshMetrics();
+          await onRefreshLeagues?.();   // sync lists from server
+          await refreshMetrics();       // tiles for new league
         }}
       />
 
@@ -217,7 +241,7 @@ export default function TopActions({
         open={logOpen}
         onClose={() => setLogOpen(false)}
         ownsSelected={ownsSelected}
-        onSubmit={handleSubmit}
+        onSubmit={handleSubmit} // (a1,a2,b1,b2,s1,s2)
         onUndo={ownsSelected ? handleUndo : undefined}
         players={players}
         loadingPlayers={loadingPlayers}

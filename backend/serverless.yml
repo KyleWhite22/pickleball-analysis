@@ -1,4 +1,8 @@
 service: pickle-api
+frameworkVersion: '3'
+
+plugins:
+  - serverless-esbuild
 
 params:
   dev:
@@ -13,24 +17,6 @@ provider:
   runtime: nodejs20.x
   region: us-east-2
   stage: ${opt:stage, 'dev'}
-  environment:
-    TABLE_NAME: !Ref PickleballTable
-    COGNITO_ISSUER_URL: ${param:COGNITO_ISSUER_URL}
-    COGNITO_APP_CLIENT_ID: ${param:COGNITO_APP_CLIENT_ID}
-  iam:
-    role:
-      statements:
-        - Effect: Allow
-          Action:
-            - dynamodb:PutItem
-            - dynamodb:UpdateItem
-            - dynamodb:GetItem
-            - dynamodb:Query
-            - dynamodb:DeleteItem
-            - dynamodb:TransactWriteItems
-          Resource:
-            - !GetAtt PickleballTable.Arn
-            - !Sub '${PickleballTable.Arn}/index/*'
   httpApi:
     payload: '2.0'
     cors:
@@ -55,9 +41,49 @@ provider:
         issuerUrl: ${param:COGNITO_ISSUER_URL}
         audience:
           - ${param:COGNITO_APP_CLIENT_ID}
+  environment:
+    TABLE_NAME: !Ref PickleballTable
+    COGNITO_ISSUER_URL: ${param:COGNITO_ISSUER_URL}
+    COGNITO_APP_CLIENT_ID: ${param:COGNITO_APP_CLIENT_ID}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:DeleteItem
+            - dynamodb:TransactWriteItems
+          Resource:
+            - !GetAtt PickleballTable.Arn
+            - !Sub '${PickleballTable.Arn}/index/*'
+
+# ✅ esbuild bundling config must be TOP-LEVEL (not under provider)
+custom:
+  esbuild:
+    bundle: true
+    minify: true
+    sourcemap: false
+    platform: node
+    target: node20
+    keepNames: true
+    external: []        # bundle all deps, including @aws-sdk
+
+# ✅ With esbuild bundling we do NOT ship node_modules
+package:
+  individually: true
+  patterns:
+    - src/**                 # include your source; esbuild will resolve imports
+    - '!**/*.test.*'
+    - '!**/__tests__/**'
+    - package.json
+    - package-lock.json
+    - '!node_modules/**'     # important on Windows to avoid EMFILE
 
 functions:
-  # ---------- GET (PUBLIC, optional token in Lambda) ----------
+  # ---------- GET (PUBLIC; some may check auth in-Lambda) ----------
   listLeagues:
     handler: src/leagues_list.handler
     events:
@@ -141,13 +167,6 @@ functions:
           method: PATCH
           authorizer: jwtAuth
 
-package:
-  patterns:
-    - src/**
-    - node_modules/**
-    - package.json
-    - package-lock.json
-
 resources:
   Conditions:
     IsProd:
@@ -156,6 +175,7 @@ resources:
         - prod
 
   Resources:
+    # Custom domain mapping for prod (optional)
     ApiApiMapping:
       Type: AWS::ApiGatewayV2::ApiMapping
       Condition: IsProd

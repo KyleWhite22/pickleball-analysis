@@ -1,3 +1,4 @@
+// src/pages/Home.tsx
 import { useAuthEmail } from "../hooks/useAuthEmail";
 import { useLeagues } from "../hooks/useLeagues";
 import TopActions from "../components/TopActions";
@@ -13,11 +14,12 @@ export default function Home() {
     setSelectedLeagueId,
     ownsSelected,
     addYourLeague,
-    refreshLeagues,      // 👈 get it
+    refreshLeagues,
   } = useLeagues(signedIn);
 
   return (
     <div className="relative min-h-[100dvh] text-white space-y-6">
+      {/* Provider must wrap TopActions + tiles */}
       <MetricsProvider leagueId={selectedLeagueId}>
         <TopActions
           yourLeagues={yourLeagues}
@@ -25,8 +27,8 @@ export default function Home() {
           selectedLeagueId={selectedLeagueId}
           onSelectLeague={setSelectedLeagueId}
           ownsSelected={ownsSelected}
-          onLeagueCreated={(league) => { addYourLeague(league); }}
-          onRefreshLeagues={refreshLeagues}    
+          onLeagueCreated={(league) => addYourLeague(league)}
+          onRefreshLeagues={refreshLeagues}
         />
         <MetricsSection />
       </MetricsProvider>
