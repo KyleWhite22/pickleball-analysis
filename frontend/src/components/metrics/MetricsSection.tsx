@@ -18,9 +18,9 @@ function KPIRow() {
   }
 
   const totalPlayers = standings?.length ?? 0;
-  const totalMatches = standings
-    ? Math.floor(standings.reduce((s, p) => s + p.wins + p.losses, 0) / 2)
-    : 0;
+ const totalMatches = standings
+  ? Math.floor(standings.reduce((s, p) => s + p.wins + p.losses, 0) / 4)
+  : 0;
   const avgWinPct =
     standings && standings.length
       ? (standings.reduce((s, p) => s + p.winPct, 0) / standings.length) * 100
@@ -41,10 +41,7 @@ export default function MetricsSection() {
       <KPIRow />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Standings />
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <h2 className="mb-2 text-lg font-semibold">Streak leaders</h2>
           <StreakLeaders />
-        </div>
       </div>
     </section>
   );
