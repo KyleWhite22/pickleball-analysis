@@ -40,7 +40,7 @@ export default function TopActions({
   const [undoing, setUndoing] = useState(false);
 
   // Track newly-created public leagues locally so labels are correct immediately
-  const [knownPublicIds, setKnownPublicIds] = useState<Set<string>>(() => new Set());
+  const [knownPublicIds] = useState<Set<string>>(() => new Set());
 
   const ownedIds = useMemo(
     () => new Set(yourLeagues.map((l) => l.leagueId)),
@@ -232,7 +232,7 @@ async function handleUndo() {
    <CreateLeagueModal
   open={createOpen}
   onClose={() => setCreateOpen(false)}
-  onCreated={(league, visibility) => {
+  onCreated={(league) => {
     // 1) Optimistic local updates (instant UI)
     onLeagueCreated?.(league);                 // add to yourLeagues immediately
     onSelectLeague(league.leagueId);           // switch UI to it
