@@ -176,7 +176,7 @@ export default function TopActions({
                 onClick={() => setChooseOpen(true)}
                 className="min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
               >
-                Choose league
+                Select league
               </button>
 
               {/* stronger vertical divider */}

@@ -76,7 +76,7 @@ export default function CreateLeagueModal({ open, onClose, onCreated }: Props) {
             </div>
 
             <div>
-              <label className="mb-1 block text-xs text-zinc-400">Visibility</label>
+              <label className="mb-1 block text-xs text-zinc-400">Visibility (Public: anyone can view/Private: your eyes only)</label>
               <select
                 value={visibility}
                 onChange={(e) => setVisibility(e.target.value as "public" | "private")}

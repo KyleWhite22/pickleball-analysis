@@ -19,11 +19,9 @@ export default function AppShell() {
 
   useEffect(() => {
     refreshEmail();
-
     const onFocus = () => refreshEmail();
     const onVisibility = () =>
       document.visibilityState === "visible" && refreshEmail();
-
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
@@ -43,25 +41,20 @@ export default function AppShell() {
   }
 
   async function handleSignOut() {
-  if (authBusy) return;
-  setAuthBusy(true);
-  try {
-    await signOut({ global: true });
-  } catch (e) {
-    // fallback to local sign out
+    if (authBusy) return;
+    setAuthBusy(true);
     try {
-      await signOut({ global: false });
+      await signOut({ global: true });
     } catch {
-      /* ignore */
+      try {
+        await signOut({ global: false });
+      } catch {/* ignore */ }
+    } finally {
+      setAuthBusy(false);
+      localStorage.removeItem("leagueId");
+      window.location.href = "/";
     }
-  } finally {
-    setAuthBusy(false);
-    // Clear client-side state
-    localStorage.removeItem("leagueId"); // ⬅ remove persisted league
-    // Optional: if you have a context/store, clear it here too
-    window.location.href = "/"; // ⬅ force redirect to home/landing
   }
-}
 
   return (
     <div className="relative min-h-[100dvh] bg-ink-900 text-white overflow-x-hidden">
@@ -74,17 +67,22 @@ export default function AppShell() {
         <div className="mx-auto max-w-6xl px-4 pt-4">
           <div className="rounded-2xl border border-white/10 bg-black/30 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,.35)]">
             <div className="flex items-center justify-between px-5 py-3">
-              {/* Brand only (logo + text) */}
+              {/* Brand (logo + wordmark) */}
               <Link to="/" className="flex items-center gap-3">
+                {/* Logo container: larger, ring, subtle glow */}
                 <img
-                  src="/logo.png" // 👈 place your logo in /public/logo.png or adjust path
-                  alt="Pickle Logo"
-                  className="h-9 w-9 rounded-xl shadow object-cover"
+                  src="/pickleballLogo.png" // ensure this file is in /public
+                  alt="Pickleball paddle"
+                  className="h-12 w-12 md:h-14 md:w-14 object-contain drop-shadow-[0_2px_8px_rgba(249,115,22,0.35)]"
                 />
+
+
+                {/* Wordmark: “Pickleball” in brand orange, “Analysis” neutral */}
                 <div className="leading-tight">
-                  <div className="font-semibold tracking-tight">Pickle</div>
-                  <div className="text-xs text-zinc-400">
-                    League stats & matches
+                  <div className="text-xl md:text-2xl font-bold tracking-tight">
+                    <span className="bg-gradient-to-r from-mint to-skyish bg-clip-text text-transparent">
+                      Pickleball Analysis
+                    </span>
                   </div>
                 </div>
               </Link>
@@ -108,7 +106,7 @@ export default function AppShell() {
                   <button
                     onClick={handleSignIn}
                     disabled={authBusy}
-                    className="rounded-xl px-3 py-1.5 text-sm font-medium text-black bg-gradient-to-r from-mint to-skyish hover:opacity-95 active:opacity-90 transition shadow-sm disabled:opacity-60"
+                    className="rounded-xl px-3 py-1.5 text-sm font-semibold text-black bg-mint hover:brightness-95 active:brightness-90 transition shadow-sm disabled:opacity-60"
                   >
                     {authBusy ? "…" : "Sign in"}
                   </button>
@@ -125,13 +123,7 @@ export default function AppShell() {
           <Outlet />
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="mx-auto max-w-6xl px-4 pb-6">
-        <div className="text-xs text-zinc-500">
-          © {new Date().getFullYear()} Pickle • Built by Kyle
-        </div>
-      </footer>
     </div>
   );
 }
+
