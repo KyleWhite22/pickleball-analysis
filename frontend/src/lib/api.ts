@@ -40,6 +40,9 @@ export type Standing = {
 
 export type Player = { playerId: string; name: string };
 
+const nocache = () => `ts=${Date.now()}`;
+const GET_INIT: RequestInit = { cache: "no-store" };
+
 // ---------- Helpers ----------
 async function buildHeaders(contentType?: string): Promise<HeadersInit> {
   const h: Record<string, string> = {};
@@ -71,10 +74,11 @@ function unwrapArray<T>(data: unknown, key: string): T[] {
 
 // ---------- Leagues ----------
 export async function listLeagues(): Promise<League[]> {
-  const res = await fetch(`${BASE}/leagues`, { headers: await buildHeaders() });
+  const res = await fetch(`${BASE}/leagues?${nocache()}`, { headers: await buildHeaders(), ...GET_INIT });
   if (res.status === 401) return [];
   return asJson<League[]>(res);
 }
+
 
 export async function createLeague(
   name: string,
@@ -89,8 +93,9 @@ export async function createLeague(
 }
 
 export async function getLeague(leagueId: string): Promise<League> {
-  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}`, {
+  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}?${nocache()}`, {
     headers: await buildHeaders(),
+    ...GET_INIT,
   });
   return asJson<League>(res);
 }
@@ -105,21 +110,21 @@ export async function renameLeague(id: string, name: string) {
 }
 
 export async function listPublicLeagues(limit = 50): Promise<League[]> {
-  const res = await fetch(`${BASE}/leagues/public?limit=${limit}`, {
+  const res = await fetch(`${BASE}/leagues/public?limit=${limit}&${nocache()}`, {
     headers: await buildHeaders(),
+    ...GET_INIT,
   });
   const data = await asJson<unknown>(res);
-  // works for either `League[]` or `{ leagues: League[] }`
   return unwrapArray<League>(data, "leagues");
 }
 
 // ---------- Matches ----------
 export async function listMatches(leagueId: string): Promise<Match[]> {
-  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}/matches`, {
+  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}/matches?${nocache()}`, {
     headers: await buildHeaders(),
+    ...GET_INIT,
   });
   const data = await asJson<unknown>(res);
-  // support `[Match]` or `{ matches: Match[] }`
   return unwrapArray<Match>(data, "matches");
 }
 
@@ -146,18 +151,18 @@ export async function deleteLastMatch(leagueId: string) {
 
 // ---------- Standings & Players ----------
 export async function getStandings(leagueId: string): Promise<Standing[]> {
-  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}/standings`, {
+  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}/standings?${nocache()}`, {
     headers: await buildHeaders(),
+    ...GET_INIT,
   });
   const data = await asJson<unknown>(res);
-  // your backend currently returns a raw array (verified via iwr),
-  // but this supports `{ standings: [...] }` too.
   return unwrapArray<Standing>(data, "standings");
 }
 
 export async function listPlayers(leagueId: string): Promise<Player[]> {
-  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}/players`, {
+  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}/players?${nocache()}`, {
     headers: await buildHeaders(),
+    ...GET_INIT,
   });
   const data = await asJson<unknown>(res);
   return unwrapArray<Player>(data, "players");

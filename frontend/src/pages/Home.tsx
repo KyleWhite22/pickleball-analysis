@@ -27,7 +27,7 @@ export default function Home() {
           selectedLeagueId={selectedLeagueId}
           onSelectLeague={setSelectedLeagueId}
           ownsSelected={ownsSelected}
-          onLeagueCreated={(league) => addYourLeague(league)}
+           onLeagueCreated={(league) => { addYourLeague(league); }}
           onRefreshLeagues={refreshLeagues}
         />
         <MetricsSection />

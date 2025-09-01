@@ -80,56 +80,62 @@ export default function TopActions({
   const { players, loading: loadingPlayers, setPlayers } = usePlayers(selectedLeagueId);
 
   // ---- Doubles submit: (a1, a2) vs (b1, b2) with scores s1, s2 ----
-  async function handleSubmit(
-    a1: string,
-    a2: string,
-    b1: string,
-    b2: string,
-    s1: number,
-    s2: number
-  ) {
-    if (!selectedLeagueId) return;
-    setSubmitting(true);
+async function handleSubmit(
+  a1: string,
+  a2: string,
+  b1: string,
+  b2: string,
+  s1: number,
+  s2: number
+) {
+  if (!selectedLeagueId) return;
+  setSubmitting(true);
+  try {
+    const payload: MatchInputDoubles = {
+      leagueId: selectedLeagueId,
+      teams: [
+        { players: [{ playerId: "", name: a1 }, { playerId: "", name: a2 }] },
+        { players: [{ playerId: "", name: b1 }, { playerId: "", name: b2 }] },
+      ],
+      score: { team1: s1, team2: s2 },
+    };
+
+    // create the match (owner-only)
+    await createMatch(selectedLeagueId, payload as any);
+
+    // refresh datalist — but DO NOT block on errors (e.g., 403 on private/public visibility)
     try {
-      const payload: MatchInputDoubles = {
-        leagueId: selectedLeagueId,
-        teams: [
-          { players: [{ playerId: "", name: a1 }, { playerId: "", name: a2 }] },
-          { players: [{ playerId: "", name: b1 }, { playerId: "", name: b2 }] },
-        ],
-        score: { team1: s1, team2: s2 },
-      };
-      await createMatch(selectedLeagueId, payload as any); // API resolves/creates players server-side
-
-      // refresh player list for datalist
-      if (selectedLeagueId) {
-        const pl = await listPlayers(selectedLeagueId);
-        setPlayers(pl);
-      }
-
-      // refresh metrics/standings tiles
-      await refreshMetrics();
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleUndo() {
-    if (!selectedLeagueId) return;
-    setUndoing(true);
-    try {
-      await deleteLastMatch(selectedLeagueId);
-
-      // keep datalist fresh
       const pl = await listPlayers(selectedLeagueId);
       setPlayers(pl);
-
-      // and refresh tiles
-      await refreshMetrics();
-    } finally {
-      setUndoing(false);
+    } catch (e) {
+      // swallow — datalist can refresh next time, and we still refresh metrics below
+      console.warn("listPlayers failed after submit (non-blocking):", e);
     }
+  } finally {
+    // ALWAYS refresh tiles so UI updates even if listPlayers fails
+    await refreshMetrics();
+    setSubmitting(false);
   }
+}
+
+async function handleUndo() {
+  if (!selectedLeagueId) return;
+  setUndoing(true);
+  try {
+    await deleteLastMatch(selectedLeagueId);
+
+    // refresh datalist — non-blocking
+    try {
+      const pl = await listPlayers(selectedLeagueId);
+      setPlayers(pl);
+    } catch (e) {
+      console.warn("listPlayers failed after undo (non-blocking):", e);
+    }
+  } finally {
+    await refreshMetrics(); // ALWAYS refresh tiles
+    setUndoing(false);
+  }
+}
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5 backdrop-blur shadow-[0_10px_30px_rgba(0,0,0,.35)]">
@@ -223,19 +229,19 @@ export default function TopActions({
         publicIds={allPublicIds}
       />
 
-      <CreateLeagueModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={async (league, visibility) => {
-          onLeagueCreated?.(league);
-          if (visibility === "public") {
-            setKnownPublicIds((prev) => new Set(prev).add(league.leagueId));
-          }
-          onSelectLeague(league.leagueId);
-          await onRefreshLeagues?.();   // sync lists from server
-          await refreshMetrics();       // tiles for new league
-        }}
-      />
+   <CreateLeagueModal
+  open={createOpen}
+  onClose={() => setCreateOpen(false)}
+  onCreated={(league, visibility) => {
+    // 1) Optimistic local updates (instant UI)
+    onLeagueCreated?.(league);                 // add to yourLeagues immediately
+    onSelectLeague(league.leagueId);           // switch UI to it
+    localStorage.setItem("leagueId", league.leagueId);
+    setCreateOpen(false);
+    void onRefreshLeagues?.();                 
+    void refreshMetrics();                     
+  }}
+/>
 
       <LogMatchModal
         open={logOpen}
