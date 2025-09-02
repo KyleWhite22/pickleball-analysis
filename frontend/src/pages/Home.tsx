@@ -30,7 +30,7 @@ export default function Home() {
            onLeagueCreated={(league) => { addYourLeague(league); }}
           onRefreshLeagues={refreshLeagues}
         />
-        <MetricsSection />
+  <MetricsSection leagueId={selectedLeagueId} />
       </MetricsProvider>
     </div>
   );

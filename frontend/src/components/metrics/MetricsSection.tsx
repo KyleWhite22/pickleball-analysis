@@ -1,6 +1,8 @@
 // src/components/metrics/MetricsSection.tsx
 import Standings from "./Standings";
 import StreakDivergingChart from "./StreakDivergingChart";
+import LastGame from "./LastGame";
+type Props = { leagueId: string | null };
 
 /*function KPIRow() {
   const { standings, loading } = useMetrics();
@@ -30,7 +32,7 @@ import StreakDivergingChart from "./StreakDivergingChart";
   );
 }*/
 
-export default function MetricsSection() {
+export default function MetricsSection({ leagueId }: Props) {
   return (
     <section className="space-y-6">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -38,6 +40,8 @@ export default function MetricsSection() {
         {/* Right column: chart + list */}
         <div className="space-y-6">
           <StreakDivergingChart />
+          <LastGame leagueId={leagueId} />
+
         </div>
       </div>
     </section>

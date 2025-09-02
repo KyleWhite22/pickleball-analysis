@@ -119,15 +119,31 @@ export async function listPublicLeagues(limit = 50): Promise<League[]> {
 }
 
 // ---------- Matches ----------
-export async function listMatches(leagueId: string): Promise<Match[]> {
-  const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}/matches?${nocache()}`, {
-    headers: await buildHeaders(),
-    ...GET_INIT,
-  });
-  const data = await asJson<unknown>(res);
-  return unwrapArray<Match>(data, "matches");
-}
+export type MatchDTO = {
+  matchId: string;
+  createdAt: string;
+  teams: [
+    { players: { id: string; name: string }[] }, // two players
+    { players: { id: string; name: string }[] }
+  ];
+  score: { team1: number; team2: number };
+  winnerTeam: 0 | 1 | null;
+};
 
+export async function listMatches(
+  leagueId: string,
+  opts?: { limit?: number; cursor?: string }
+): Promise<{ matches: MatchDTO[]; nextCursor: string | null }> {
+  const params = new URLSearchParams();
+  if (opts?.limit) params.set("limit", String(opts.limit));
+  if (opts?.cursor) params.set("cursor", opts.cursor);
+  const res = await fetch(
+    `${BASE}/leagues/${encodeURIComponent(leagueId)}/matches?${params.toString()}&${nocache()}`,
+    { headers: await buildHeaders(), ...GET_INIT }
+  );
+  const data = await asJson<{ leagueId: string; matches: MatchDTO[]; nextCursor: string | null }>(res);
+  return { matches: data.matches, nextCursor: data.nextCursor };
+}
 // IMPORTANT: now expects DOUBLES payload
 export async function createMatch(leagueId: string, input: MatchInputDoubles): Promise<{ ok: boolean; matchId?: string }> {
   const res = await fetch(`${BASE}/leagues/${encodeURIComponent(leagueId)}/matches`, {

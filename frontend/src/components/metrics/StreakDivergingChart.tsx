@@ -1,3 +1,4 @@
+// e.g., src/components/metrics/StreakDivergingChart.tsx
 import {
   ResponsiveContainer,
   BarChart,
