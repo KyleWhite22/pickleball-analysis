@@ -1,6 +1,5 @@
 // src/components/metrics/MetricsSection.tsx
 import KPI from "./KPI";
-import StreakLeaders from "./StreakLeaders";
 import Standings from "./Standings";
 import StreakDivergingChart from "./StreakDivergingChart";
 import { useMetrics } from "./MetricsProvider";
@@ -42,7 +41,6 @@ export default function MetricsSection() {
         {/* Right column: chart + list */}
         <div className="space-y-6">
           <StreakDivergingChart />
-          <StreakLeaders />
         </div>
       </div>
     </section>

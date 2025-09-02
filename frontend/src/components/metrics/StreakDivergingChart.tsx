@@ -51,7 +51,8 @@ const domain: [number, number] = maxAbs > 0 ? [-maxAbs, maxAbs] : [-1, 1];
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
       <h2 className="mb-2 text-lg font-semibold">Streaks</h2>
 
-      <div className="h-64">
+      <div className="h-64 sm:h-72 md:h-80 lg:h-96">
+
  <ResponsiveContainer width="100%" height="100%">
   <BarChart
     data={data}  // [{ name, win (>0), loss (<0), winName?, lossName? }]
