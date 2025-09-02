@@ -11,23 +11,23 @@ export default function Standings() {
   <h2 className="mb-2 text-lg font-semibold">Leaderboard</h2>
 
   <ul className="divide-y divide-white/10 text-[13px] sm:text-sm">
-    {/* Header (no Name label) */}
+    {/* Header */}
     <li
-      className="grid items-center gap-x-2 py-1 text-[11px] uppercase tracking-wide text-zinc-400
-                 [grid-template-columns:1.25rem_minmax(0,1fr)_1fr_1fr_1fr]"
+      className="grid items-center py-1 text-[11px] uppercase tracking-wide
+                 [grid-template-columns:1.25rem_minmax(0,1fr)_minmax(2.5rem,3.25rem)_minmax(3rem,3.75rem)_minmax(3.5rem,5rem)] gap-x-1.5"
     >
       <span /> {/* rank placeholder */}
       <span className="min-w-0" /> {/* name placeholder */}
-      <span className="text-right leading-tight">Rec</span>
-      <span className="text-right leading-tight">Win%</span>
-      <span className="text-right leading-tight">PF/PA</span>
+      <span className="text-right text-white font-semibold leading-tight">Rec</span>
+      <span className="text-right text-white font-semibold leading-tight">Win%</span>
+      <span className="text-right text-white font-semibold leading-tight">PF/PA</span>
     </li>
 
     {standings.map((p, i) => (
       <li
         key={p.playerId}
-        className="grid items-center gap-x-2 py-1 leading-tight
-                   [grid-template-columns:1.25rem_minmax(0,1fr)_1fr_1fr_1fr]"
+        className="grid items-center py-1 leading-tight
+                   [grid-template-columns:1.25rem_minmax(0,1fr)_minmax(2.5rem,3.25rem)_minmax(3rem,3.75rem)_minmax(3.5rem,5rem)] gap-x-1.5"
       >
         {/* Rank */}
         <span
@@ -48,23 +48,24 @@ export default function Standings() {
         </span>
 
         {/* Record */}
-        <span className="text-right tabular-nums font-mono whitespace-nowrap">
+        <span className="text-right text-zinc-400 tabular-nums whitespace-nowrap">
           {p.wins}-{p.losses}
         </span>
 
         {/* Win % */}
-        <span className="text-right text-zinc-400 tabular-nums font-mono whitespace-nowrap">
+        <span className="text-right text-zinc-400 tabular-nums whitespace-nowrap">
           {(p.winPct * 100).toFixed(0)}%
         </span>
 
         {/* PF/PA */}
-        <span className="text-right text-zinc-400 tabular-nums font-mono whitespace-nowrap">
+        <span className="text-right text-zinc-400 tabular-nums whitespace-nowrap">
           {p.pointsFor}/{p.pointsAgainst}
         </span>
       </li>
     ))}
   </ul>
 </div>
+
 
   );
 }
