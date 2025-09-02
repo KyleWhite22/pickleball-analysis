@@ -70,7 +70,7 @@ export default function CreateLeagueModal({ open, onClose, onCreated }: Props) {
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Campus Doubles Ladder"
+                placeholder="e.g., Cincinnati Club"
                 className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-mint/40"
               />
             </div>
