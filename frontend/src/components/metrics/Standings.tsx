@@ -14,15 +14,12 @@ export default function Standings() {
 <ul className="divide-y divide-white/10">
   {/* Header row */}
   <li className="flex items-center py-2 text-xs uppercase tracking-wide text-zinc-400">
-    {/* Empty placeholders so columns align */}
     <span className="w-6" />
-    <span className="ml-3 flex-1" />
-
-    {/* Stats headers */}
-    <span className="w-12 text-right">Record</span>
-    <span className="w-14 text-right">Win %</span>
-    <span className="w-17 text-right">PF / PA</span>
-    <span className="w-18 text-right">Streak</span>
+    <span className="ml-3 flex-1 min-w-0" /> {/* keep header columns aligned */}
+    <span className="w-14 text-right">Record</span>
+    <span className="w-16 text-right">Win %</span>
+    <span className="hidden sm:block w-24 text-right">PF / PA</span>
+    <span className="hidden sm:block w-12 text-right">Streak</span>
   </li>
 
   {standings.map((p, i) => (
@@ -31,26 +28,26 @@ export default function Standings() {
       <span className="w-6 text-right text-zinc-400">{i + 1}</span>
 
       {/* Name */}
-      <span className="ml-3 flex-1 font-medium truncate">{p.name}</span>
+      <span className="ml-3 flex-1 min-w-0 font-medium truncate">{p.name}</span>
 
       {/* Record */}
-      <span className="w-14 text-sm tabular-nums text-right">
+      <span className="w-14 text-sm tabular-nums text-right shrink-0">
         {p.wins}-{p.losses}
       </span>
 
       {/* Win % */}
-      <span className="w-16 text-sm text-zinc-400 tabular-nums text-right">
+      <span className="w-16 text-sm text-zinc-400 tabular-nums text-right shrink-0">
         {(p.winPct * 100).toFixed(1)}%
       </span>
 
-      {/* PF/PA */}
-      <span className="w-24 text-sm text-zinc-400 tabular-nums text-right whitespace-nowrap">
+      {/* PF/PA (hide on xs) */}
+      <span className="hidden sm:block w-24 text-sm text-zinc-400 tabular-nums text-right whitespace-nowrap shrink-0">
         PF {p.pointsFor} / PA {p.pointsAgainst}
       </span>
 
-      {/* Streak */}
+      {/* Streak (hide on xs) */}
       <span
-        className={`w-12 text-sm tabular-nums text-right ${
+        className={`hidden sm:block w-12 text-sm tabular-nums text-right shrink-0 ${
           p.streak > 0
             ? "text-emerald-400"
             : p.streak < 0
@@ -58,11 +55,7 @@ export default function Standings() {
             : "text-zinc-400"
         }`}
       >
-        {p.streak > 0
-          ? `W${p.streak}`
-          : p.streak < 0
-          ? `L${-p.streak}`
-          : "—"}
+        {p.streak > 0 ? `W${p.streak}` : p.streak < 0 ? `L${-p.streak}` : "—"}
       </span>
     </li>
   ))}
