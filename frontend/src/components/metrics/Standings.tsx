@@ -14,7 +14,7 @@ export default function Standings() {
     {/* Header */}
     <li
       className="grid items-center py-1 text-[11px] uppercase tracking-wide
-                 [grid-template-columns:1.25rem_minmax(0,1fr)_minmax(2.5rem,3.25rem)_minmax(3rem,3.75rem)_minmax(3.5rem,5rem)] gap-x-1.5"
+                 [grid-template-columns:1.25rem_minmax(0,1fr)_minmax(2.75rem,3.25rem)_minmax(3.5rem,4rem)_minmax(3.25rem,4rem)] gap-x-1.5"
     >
       <span /> {/* rank placeholder */}
       <span className="min-w-0" /> {/* name placeholder */}
@@ -27,7 +27,7 @@ export default function Standings() {
       <li
         key={p.playerId}
         className="grid items-center py-1 leading-tight
-                   [grid-template-columns:1.25rem_minmax(0,1fr)_minmax(2.5rem,3.25rem)_minmax(3rem,3.75rem)_minmax(3.5rem,5rem)] gap-x-1.5"
+                   [grid-template-columns:1.25rem_minmax(0,1fr)_minmax(2.75rem,3.25rem)_minmax(3.5rem,4rem)_minmax(3.25rem,4rem)] gap-x-1.5"
       >
         {/* Rank */}
         <span
