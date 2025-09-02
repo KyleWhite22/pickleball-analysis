@@ -12,7 +12,7 @@ import { useMemo } from "react";
 import { useMetrics } from "./MetricsProvider";
 
 export default function StreakDivergingChart() {
-  const { standings, loading } = useMetrics();
+  const { standings } = useMetrics();
 
   // Build data first (preserves hook order)
 const { data, maxAbs } = useMemo(() => {
