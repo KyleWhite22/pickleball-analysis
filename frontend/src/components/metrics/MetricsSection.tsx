@@ -36,7 +36,6 @@ function KPIRow() {
 }
 
 export default function MetricsSection() {
-  /*
   return (
     <section className="space-y-6">
       <KPIRow />
@@ -46,13 +45,5 @@ export default function MetricsSection() {
       </div>
     </section>
   );
-  */
-  return (
-    <section className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Standings />
-          <StreakLeaders />
-      </div>
-    </section>
-  );
+
 }
