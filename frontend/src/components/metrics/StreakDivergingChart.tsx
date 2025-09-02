@@ -6,7 +6,7 @@ import {
   YAxis,
   ReferenceLine,
   LabelList,
-  Label,
+  Label
 } from "recharts";
 import { useMemo } from "react";
 import { useMetrics } from "./MetricsProvider";
@@ -14,12 +14,17 @@ import { useMetrics } from "./MetricsProvider";
 export default function StreakDivergingChart() {
   const { standings } = useMetrics();
 
-  // Build data first (preserves hook order)
 const { data, maxAbs } = useMemo(() => {
   const rows =
     (standings ?? [])
       .filter(p => typeof p?.streak === "number" && p.streak !== 0)
-      .sort((a, b) => Math.abs(b.streak) - Math.abs(a.streak))
+      // ✅ sort so wins first (descending), then losses (ascending)
+      .sort((a, b) => {
+        if (a.streak > 0 && b.streak <= 0) return -1; // a win above a loss
+        if (a.streak <= 0 && b.streak > 0) return 1;  // a loss below a win
+        // both same sign → sort by absolute streak magnitude
+        return Math.abs(b.streak) - Math.abs(a.streak);
+      })
       .slice(0, 12)
       .map(p => {
         const win  = p.streak > 0 ? p.streak : 0;
@@ -93,8 +98,8 @@ const domain: [number, number] = maxAbs > 0 ? [-maxAbs, maxAbs] : [-1, 1];
     >
       <LabelList
         dataKey="lossName"    // ensure you set this field only for losses
-        position="right"      // right edge of red bar == zero axis
-        offset={20}           // push name further right of axis
+        position="left"      // right edge of red bar == zero axis
+        offset={10}           // push name further right of axis
         fill="#fff"
         fontSize={12}
         fontWeight={600}
