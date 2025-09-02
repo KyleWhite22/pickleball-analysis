@@ -12,43 +12,53 @@ export default function Standings() {
 
   <ul className="divide-y divide-white/10 text-[13px] sm:text-sm">
     {/* Header row */}
-    <li className="flex items-center py-1 text-[11px] uppercase tracking-wide text-zinc-400">
-      <span className="w-5" /> {/* Rank placeholder */}
-      <span className="flex-1 min-w-0 px-1" /> {/* Empty so names align */}
-      <span className="flex-shrink-0 w-auto px-1 text-right">Rec</span>
-      <span className="flex-shrink-0 w-auto px-1 text-right">Win%</span>
-      <span className="flex-shrink-0 w-auto px-1 text-right">PF/PA</span>
-      <span className="flex-shrink-0 w-auto px-1 text-right">Str</span>
+    <li className="grid grid-cols-[1.25rem_minmax(0,1fr)_3.5rem_3.25rem_5.5rem_2.75rem] gap-x-2
+                   py-1 text-[11px] uppercase tracking-wide text-zinc-400">
+      <span /> {/* rank placeholder */}
+      <span className="min-w-0" /> {/* name placeholder */}
+      <span className="text-right">Rec</span>
+      <span className="text-right">Win%</span>
+      <span className="text-right">PF/PA</span>
+      <span className="text-right">Str</span>
     </li>
 
     {standings.map((p, i) => (
-      <li key={p.playerId} className="flex items-center py-1">
+      <li
+        key={p.playerId}
+        className="grid grid-cols-[1.25rem_minmax(0,1fr)_3.5rem_3.25rem_5.5rem_2.75rem] gap-x-2 py-1"
+      >
         {/* Rank */}
-        <span className="w-5 text-right text-zinc-400 text-xs">{i + 1}</span>
+        <span className="text-right text-xs tabular-nums">
+          {i === 0 ? "👑" : <span className="text-zinc-400">{i + 1}</span>}
+        </span>
 
         {/* Name */}
-        <span className="flex-1 min-w-0 truncate font-medium px-1">
+        <span
+          className={`min-w-0 truncate font-medium ${
+            i === 0 ? "text-yellow-400 font-semibold" : ""
+          }`}
+        >
           {p.name}
         </span>
 
         {/* Record */}
-        <span className="flex-shrink-0 w-auto px-1 tabular-nums text-right">
+        <span className="text-right tabular-nums">
           {p.wins}-{p.losses}
         </span>
 
         {/* Win % */}
-        <span className="flex-shrink-0 w-auto px-1 text-zinc-400 tabular-nums text-right">
+        <span className="text-right text-zinc-400 tabular-nums">
           {(p.winPct * 100).toFixed(0)}%
         </span>
 
         {/* PF/PA */}
-        <span className="flex-shrink-0 w-auto px-1 text-zinc-400 tabular-nums whitespace-nowrap text-right">
+        <span className="text-right text-zinc-400 tabular-nums whitespace-nowrap">
           {p.pointsFor}/{p.pointsAgainst}
         </span>
 
         {/* Streak */}
         <span
-          className={`flex-shrink-0 w-auto px-1 tabular-nums text-right ${
+          className={`text-right tabular-nums ${
             p.streak > 0
               ? "text-emerald-400"
               : p.streak < 0
