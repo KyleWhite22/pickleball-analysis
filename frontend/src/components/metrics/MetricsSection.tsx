@@ -1,10 +1,8 @@
 // src/components/metrics/MetricsSection.tsx
-import KPI from "./KPI";
 import Standings from "./Standings";
 import StreakDivergingChart from "./StreakDivergingChart";
-import { useMetrics } from "./MetricsProvider";
 
-function KPIRow() {
+/*function KPIRow() {
   const { standings, loading } = useMetrics();
 
   if (loading) {
@@ -30,12 +28,11 @@ function KPIRow() {
       <KPI label="Avg win %" value={`${avgWinPct.toFixed(1)}%`} />
     </div>
   );
-}
+}*/
 
 export default function MetricsSection() {
   return (
     <section className="space-y-6">
-      <KPIRow />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Standings />
         {/* Right column: chart + list */}
