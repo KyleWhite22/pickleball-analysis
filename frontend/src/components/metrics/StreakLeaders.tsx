@@ -37,14 +37,15 @@ export default function StreakLeaders() {
           {wins.length === 0 ? (
             <p className="text-xs text-zinc-500">—</p>
           ) : (
-            <ul className="divide-y divide-white/10">
-              {wins.map((p) => (
-                <li key={p.playerId} className="flex items-center justify-between py-2">
-                  <span className="truncate">{p.name}</span>
-                  <span className="tabular-nums text-mint-light">W{p.streak}</span>
-                </li>
-              ))}
-            </ul>
+           <ul className="divide-y divide-white/10">
+  {wins.map((p) => (
+    <li key={p.playerId} className="flex items-center justify-between py-2">
+      <span className="truncate">{p.name}</span>
+      {/* modern green for win streaks */}
+      <span className="tabular-nums text-emerald-400">W{p.streak}</span>
+    </li>
+  ))}
+</ul>
           )}
         </div>
         <div>
