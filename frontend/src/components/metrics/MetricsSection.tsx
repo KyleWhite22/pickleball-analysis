@@ -2,6 +2,7 @@
 import KPI from "./KPI";
 import StreakLeaders from "./StreakLeaders";
 import Standings from "./Standings";
+import StreakDivergingChart from "./StreakDivergingChart";
 import { useMetrics } from "./MetricsProvider";
 
 function KPIRow() {
@@ -18,13 +19,10 @@ function KPIRow() {
   }
 
   const totalPlayers = standings?.length ?? 0;
- const totalMatches = standings
-  ? Math.floor(standings.reduce((s, p) => s + p.wins + p.losses, 0) / 4)
-  : 0;
-  const avgWinPct =
-    standings && standings.length
-      ? (standings.reduce((s, p) => s + p.winPct, 0) / standings.length) * 100
-      : 0;
+  const totalMatches = standings ? Math.floor(standings.reduce((s, p) => s + p.wins + p.losses, 0) / 4) : 0;
+  const avgWinPct = standings && standings.length
+    ? (standings.reduce((s, p) => s + p.winPct, 0) / standings.length) * 100
+    : 0;
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -41,9 +39,12 @@ export default function MetricsSection() {
       <KPIRow />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Standings />
+        {/* Right column: chart + list */}
+        <div className="space-y-6">
+          <StreakDivergingChart />
           <StreakLeaders />
+        </div>
       </div>
     </section>
   );
-
 }
