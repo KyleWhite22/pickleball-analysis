@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   ResponsiveContainer,
   PieChart,
@@ -87,42 +87,26 @@ export default function WonSharePie({ leagueId }: { leagueId: string | null }) {
   const colors = useMemo(() => orangeScale(data.length), [data.length]);
 
   // Custom outside labels
-  const label = (props: PieLabelRenderProps) => {
-    const {
-      cx = 0,
-      cy = 0,
-      midAngle = 0,
-      outerRadius = 0,
-      percent = 0,
-      payload,
-      fill
-    } = props || {};
-
-    const cxNum = Number(cx);
-    const cyNum = Number(cy);
-    const midAngleNum = Number(midAngle);
-    const outerRadiusNum = Number(outerRadius);
-
-    if (!percent || percent < 0.04 || !payload?.name) return null;
-
-    const RAD = Math.PI / 180;
-    const r = outerRadiusNum + 14;
-    const x = cxNum + r * Math.cos(-midAngleNum * RAD);
-    const y = cyNum + r * Math.sin(-midAngleNum * RAD);
-
-    return (
-      <text
-        x={x}
-        y={y}
-        textAnchor={x > cxNum ? "start" : "end"}
-        dominantBaseline="central"
-        fontSize={12}
-        fill={fill ?? "#fff"} 
-      >
-        {`${payload.name} ${(percent * 100).toFixed(0)}%`}
-      </text>
-    );
-  };
+const label = useCallback((props: PieLabelRenderProps) => {
+  const { cx = 0, cy = 0, midAngle = 0, outerRadius = 0, percent = 0, payload, fill } = props || {};
+  if (!percent || percent < 0.04 || !payload?.name) return null;
+  const RAD = Math.PI / 180;
+  const r = Number(outerRadius) + 14;   // ensure number for TS + perf
+  const x = Number(cx) + r * Math.cos(-midAngle * RAD);
+  const y = Number(cy) + r * Math.sin(-midAngle * RAD);
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor={x > Number(cx) ? "start" : "end"}
+      dominantBaseline="central"
+      fontSize={12}
+      fill={fill ?? "#fff"}
+    >
+      {`${payload.name} ${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+}, []);
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
       <h2 className="mb-2 text-lg font-semibold">Win Percentages</h2>
@@ -132,7 +116,7 @@ export default function WonSharePie({ leagueId }: { leagueId: string | null }) {
       ) : !leagueId ? (
         <p className="text-sm text-zinc-400">Select a league</p>
       ) : data.length === 0 ? (
-        <p className="text-sm text-zinc-400">No decisive games yet.</p>
+        <p className="text-sm text-zinc-400">No games yet.</p>
       ) : (
         <div style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -147,6 +131,7 @@ export default function WonSharePie({ leagueId }: { leagueId: string | null }) {
                 outerRadius={90}
                 labelLine={false}
                 label={label}
+                isAnimationActive={false} 
               >
                 {data.map((_, i) => (
                   <Cell key={`cell-${i}`} fill={colors[i]} />
