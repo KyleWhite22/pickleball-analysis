@@ -1,3 +1,4 @@
+// src/components/metrics/PlayerMetrics.tsx
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useMetrics } from "./MetricsProvider";
 import { getLeagueMetrics, type MatchDTO } from "../../lib/api";
@@ -8,43 +9,102 @@ import {
   computeCompositeScores,
   computeGrades,
 } from "../../hooks/stats";
+
 type MaybeExtendedStanding = {
   playerId: string;
   name: string;
   wins: number;
   losses: number;
-  winPct: number;      // 0..1
+  winPct: number; // 0..1
   pointsFor: number;
   pointsAgainst: number;
   elo?: number;
 };
 
-export default function PlayerMetrics({ leagueId }: { leagueId: string | null }) {
-const { standings, loading, version } = useMetrics();
+/** Build a per-player longest win streak map from doubles matches */
+function computeLongestWinStreaks(matches: MatchDTO[]): Record<string, number> {
+  // process in chronological order
+  const ms = [...matches].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
 
-  // ---- partners & elo computed from /metrics.recentMatches ----
+  type StreakAgg = { cur: number; best: number };
+  const m: Record<string, StreakAgg> = {};
+  const ensure = (id: string) => (m[id] ??= { cur: 0, best: 0 });
+
+  for (const match of ms) {
+    const [t1, t2] = match.teams;
+    const A = t1?.players?.map((p) => p.id) ?? [];
+    const B = t2?.players?.map((p) => p.id) ?? [];
+    if (A.length !== 2 || B.length !== 2) continue;
+
+    const t1Won = match.winnerTeam === 0;
+    const t2Won = match.winnerTeam === 1;
+
+    // update streaks for winners/losers
+    const apply = (ids: string[], won: boolean) => {
+      for (const id of ids) {
+        const s = ensure(id);
+        if (won) {
+          s.cur = Math.max(1, s.cur + 1);
+          s.best = Math.max(s.best, s.cur);
+        } else {
+          s.cur = 0;
+        }
+      }
+    };
+
+    // ties/unknown winner → break both teams’ streaks
+    if (!t1Won && !t2Won) {
+      apply(A, false);
+      apply(B, false);
+    } else {
+      apply(A, t1Won);
+      apply(B, t2Won);
+    }
+  }
+
+  const out: Record<string, number> = {};
+  for (const id in m) out[id] = m[id].best;
+  return out;
+}
+
+export default function PlayerMetrics({ leagueId }: { leagueId: string | null }) {
+  const { standings, loading, version } = useMetrics();
+
+  // ---- partners, elo, and longest streaks from /metrics.recentMatches ----
   const [partners, setPartners] = useState<BestPartnersMap>({});
   const [elo, setElo] = useState<Record<string, number>>({});
+  const [streaks, setStreaks] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      if (!leagueId) { setPartners({}); setElo({}); return; }
+      if (!leagueId) {
+        setPartners({});
+        setElo({});
+        setStreaks({});
+        return;
+      }
       try {
         const { recentMatches } = await getLeagueMetrics(leagueId);
         if (!alive) return;
         const ms = recentMatches as MatchDTO[];
         setPartners(computeBestPartners(ms));
         setElo(computeElo(ms));
+        setStreaks(computeLongestWinStreaks(ms));
       } catch (e) {
         console.warn("[PlayerMetrics] metrics load failed:", e);
         if (!alive) return;
         setPartners({});
         setElo({});
+        setStreaks({});
       }
     })();
-    return () => { alive = false; };
- }, [leagueId, version]);
+    return () => {
+      alive = false;
+    };
+  }, [leagueId, version]);
 
   // ---- ordering (best to worst) ----
   const data: MaybeExtendedStanding[] = Array.isArray(standings) ? (standings as any) : [];
@@ -60,18 +120,30 @@ const { standings, loading, version } = useMetrics();
 
   // ---- pager ----
   const [idx, setIdx] = useState(0);
-  useEffect(() => { setIdx(0); }, [ordered.length]);
+  useEffect(() => {
+    setIdx(0);
+  }, [ordered.length]);
   const current = ordered[idx];
   const canPrev = idx > 0;
   const canNext = idx + 1 < ordered.length;
-  const goPrev = useCallback(() => { if (canPrev) setIdx(i => i - 1); }, [canPrev]);
-  const goNext = useCallback(() => { if (canNext) setIdx(i => i + 1); }, [canNext]);
+  const goPrev = useCallback(() => {
+    if (canPrev) setIdx((i) => i - 1);
+  }, [canPrev]);
+  const goNext = useCallback(() => {
+    if (canNext) setIdx((i) => i + 1);
+  }, [canNext]);
 
   // optional keyboard nav
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "ArrowLeft") { e.preventDefault(); goPrev(); }
-      if (e.key === "ArrowRight") { e.preventDefault(); goNext(); }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        goPrev();
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        goNext();
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -84,6 +156,11 @@ const { standings, loading, version } = useMetrics();
     return computeGrades(composite);
   }, [standings, elo]);
 
+  // helpers
+  const diff = current ? current.pointsFor - current.pointsAgainst : 0;
+  const diffSigned = diff > 0 ? `+${diff}` : `${diff}`; // includes zero as "0"
+  const longest = current ? streaks[current.playerId] ?? 0 : 0;
+
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
       <div className="mb-3 flex items-center justify-between">
@@ -92,18 +169,26 @@ const { standings, loading, version } = useMetrics();
           <button
             onClick={goPrev}
             disabled={!canPrev}
-            className={`rounded-lg px-2 py-1 text-base leading-none ${canPrev ? "text-mint hover:bg-white/10" : "text-zinc-500 cursor-not-allowed"}`}
+            className={`rounded-lg px-2 py-1 text-base leading-none ${
+              canPrev ? "text-mint hover:bg-white/10" : "text-zinc-500 cursor-not-allowed"
+            }`}
             aria-label="Previous player"
-          >‹</button>
+          >
+            ‹
+          </button>
           <span className="text-xs text-zinc-400 tabular-nums">
             {ordered.length ? `${idx + 1} / ${ordered.length}` : "0 / 0"}
           </span>
           <button
             onClick={goNext}
             disabled={!canNext}
-            className={`rounded-lg px-2 py-1 text-base leading-none ${canNext ? "text-mint hover:bg-white/10" : "text-zinc-500 cursor-not-allowed"}`}
+            className={`rounded-lg px-2 py-1 text-base leading-none ${
+              canNext ? "text-mint hover:bg-white/10" : "text-zinc-500 cursor-not-allowed"
+            }`}
             aria-label="Next player"
-          >›</button>
+          >
+            ›
+          </button>
         </div>
       </div>
 
@@ -113,7 +198,7 @@ const { standings, loading, version } = useMetrics();
         <p className="text-sm text-zinc-400">Select a league</p>
       ) : ordered.length === 0 ? (
         <p className="text-sm text-zinc-400">No players yet.</p>
-      ) : current && (
+      ) : current ? (
         <div className="space-y-4">
           <div className="flex items-baseline justify-between">
             <div className="min-w-0 flex items-center gap-2">
@@ -129,20 +214,29 @@ const { standings, loading, version } = useMetrics();
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <StatBox label="Record" value={`${current.wins}-${current.losses}`} />
             <StatBox label="Win %" value={`${(current.winPct * 100).toFixed(0)}%`} />
-            <StatBox label="PF / PA" value={`${current.pointsFor}/${current.pointsAgainst}`} />
-            <StatBox label="Point Diff" value={`${current.pointsFor - current.pointsAgainst}`} />
-            <StatBox label="ELO" value={elo[current.playerId] != null ? Math.round(elo[current.playerId]).toString() : "—"} />
+            {/* Combined PF/PA + Diff */}
+            <StatBox label="PF/PA (Diff)" value={`${current.pointsFor}/${current.pointsAgainst} (${diffSigned})`} />
+            <StatBox
+              label="ELO"
+              value={
+                elo[current.playerId] != null ? Math.round(elo[current.playerId]).toString() : "—"
+              }
+            />
+            {/* New: Longest Win Streak */}
+            <StatBox label="Longest Win Streak" value={longest ? `${longest}` : "—"} />
             <StatBox
               label="Highest Synergy Partner"
               value={
                 partners[current.playerId]
-                  ? `${partners[current.playerId]!.partnerName} (${Math.round(partners[current.playerId]!.winPct * 100)}%)`
+                  ? `${partners[current.playerId]!.partnerName} (${Math.round(
+                      partners[current.playerId]!.winPct * 100
+                    )}%)`
                   : "—"
               }
             />
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
