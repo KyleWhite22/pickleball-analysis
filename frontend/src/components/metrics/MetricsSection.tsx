@@ -43,16 +43,20 @@ export default function MetricsSection({ leagueId }: Props) {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-6">
           <Standings />
-          <StreakDivergingChart />
-          {/* key forces a fresh mount when league changes */}
-          <Superlatives key={leagueId ?? "none"} leagueId={leagueId} />
-         <PointDiffBars />   {/* ✅ new chart here */}
+
+          <WinSharePie leagueId={leagueId} />
+          <PointDiffBars />
+
         </div>
 
         <div className="space-y-6">
+                    <PlayerMetrics leagueId={leagueId} />
+
           <LastGame leagueId={leagueId} />
-          <PlayerMetrics leagueId={leagueId} />
-          <WinSharePie leagueId={leagueId} />
+
+          <StreakDivergingChart />
+          <Superlatives key={leagueId ?? "none"} leagueId={leagueId} />
+
         </div>
       </div>
     </section>
