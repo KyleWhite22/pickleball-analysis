@@ -80,62 +80,62 @@ export default function TopActions({
   const { players, loading: loadingPlayers, setPlayers } = usePlayers(selectedLeagueId);
 
   // ---- Doubles submit: (a1, a2) vs (b1, b2) with scores s1, s2 ----
-async function handleSubmit(
-  a1: string,
-  a2: string,
-  b1: string,
-  b2: string,
-  s1: number,
-  s2: number
-) {
-  if (!selectedLeagueId) return;
-  setSubmitting(true);
-  try {
-    const payload: MatchInputDoubles = {
-      leagueId: selectedLeagueId,
-      teams: [
-        { players: [{ playerId: "", name: a1 }, { playerId: "", name: a2 }] },
-        { players: [{ playerId: "", name: b1 }, { playerId: "", name: b2 }] },
-      ],
-      score: { team1: s1, team2: s2 },
-    };
-
-    // create the match (owner-only)
-    await createMatch(selectedLeagueId, payload as any);
-
-    // refresh datalist — but DO NOT block on errors (e.g., 403 on private/public visibility)
+  async function handleSubmit(
+    a1: string,
+    a2: string,
+    b1: string,
+    b2: string,
+    s1: number,
+    s2: number
+  ) {
+    if (!selectedLeagueId) return;
+    setSubmitting(true);
     try {
-      const pl = await listPlayers(selectedLeagueId);
-      setPlayers(pl);
-    } catch (e) {
-      // swallow — datalist can refresh next time, and we still refresh metrics below
-      console.warn("listPlayers failed after submit (non-blocking):", e);
+      const payload: MatchInputDoubles = {
+        leagueId: selectedLeagueId,
+        teams: [
+          { players: [{ playerId: "", name: a1 }, { playerId: "", name: a2 }] },
+          { players: [{ playerId: "", name: b1 }, { playerId: "", name: b2 }] },
+        ],
+        score: { team1: s1, team2: s2 },
+      };
+
+      // create the match (owner-only)
+      await createMatch(selectedLeagueId, payload as any);
+
+      // refresh datalist — but DO NOT block on errors (e.g., 403 on private/public visibility)
+      try {
+        const pl = await listPlayers(selectedLeagueId);
+        setPlayers(pl);
+      } catch (e) {
+        // swallow — datalist can refresh next time, and we still refresh metrics below
+        console.warn("listPlayers failed after submit (non-blocking):", e);
+      }
+    } finally {
+      // ALWAYS refresh tiles so UI updates even if listPlayers fails
+      await refreshMetrics();
+      setSubmitting(false);
     }
-  } finally {
-    // ALWAYS refresh tiles so UI updates even if listPlayers fails
-    await refreshMetrics();
-    setSubmitting(false);
   }
-}
 
-async function handleUndo() {
-  if (!selectedLeagueId) return;
-  setUndoing(true);
-  try {
-    await deleteLastMatch(selectedLeagueId);
-
-    // refresh datalist — non-blocking
+  async function handleUndo() {
+    if (!selectedLeagueId) return;
+    setUndoing(true);
     try {
-      const pl = await listPlayers(selectedLeagueId);
-      setPlayers(pl);
-    } catch (e) {
-      console.warn("listPlayers failed after undo (non-blocking):", e);
+      await deleteLastMatch(selectedLeagueId);
+
+      // refresh datalist — non-blocking
+      try {
+        const pl = await listPlayers(selectedLeagueId);
+        setPlayers(pl);
+      } catch (e) {
+        console.warn("listPlayers failed after undo (non-blocking):", e);
+      }
+    } finally {
+      await refreshMetrics(); // ALWAYS refresh tiles
+      setUndoing(false);
     }
-  } finally {
-    await refreshMetrics(); // ALWAYS refresh tiles
-    setUndoing(false);
   }
-}
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5 backdrop-blur shadow-[0_10px_30px_rgba(0,0,0,.35)]">
@@ -174,34 +174,35 @@ async function handleUndo() {
         </div>
 
         {/* Actions */}
-       <div className="w-full md:w-auto">
-  <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-    {/* Grouped neutral buttons (full width on mobile, inline on sm+) */}
-    <div className="flex w-full flex-col overflow-hidden rounded-lg border border-white/10 sm:w-auto sm:flex-row">
-      <button
-        onClick={() => setChooseOpen(true)}
-        className="w-full bg-white/10 px-3 py-2 text-sm hover:bg-white/15 sm:flex-1 sm:min-w-[9rem]"
-      >
-        Select league
-      </button>
+        <div className="w-full md:w-auto">
+          <div className="flex w-full flex-row flex-wrap gap-2 items-center justify-end">
+            {/* Grouped neutral buttons (always side by side) */}
+            <div className="flex w-full sm:w-auto flex-row overflow-hidden rounded-lg border border-white/10">
+              <button
+                onClick={() => setChooseOpen(true)}
+                className="flex-1 min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+              >
+                Select league
+              </button>
 
-      {/* divider: horizontal on mobile, vertical on sm+ */}
-      <div className="h-px w-full bg-white/50 sm:h-auto sm:w-px" />
+              {/* vertical divider (since they’re always side-by-side) */}
+              <div className="w-px bg-white/50" />
 
-      <button
-        onClick={async () => {
-          if (!signedIn) {
-            await signInWithRedirect();
-            return;
-          }
-          setCreateOpen(true);
-        }}
-        className="w-full bg-white/10 px-3 py-2 text-sm hover:bg-white/15 sm:flex-1 sm:min-w-[9rem]"
-      >
-        Create league
-      </button>
-    </div>
-      {/* Log Match only if you own the league */}
+              <button
+                onClick={async () => {
+                  if (!signedIn) {
+                    await signInWithRedirect();
+                    return;
+                  }
+                  setCreateOpen(true);
+                }}
+                className="flex-1 min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+              >
+                Create league
+              </button>
+            </div>
+
+            {/* Log Match only if you own the league */}
             {ownsSelected && selectedLeagueId && (
               <button
                 onClick={() => setLogOpen(true)}
@@ -210,8 +211,8 @@ async function handleUndo() {
                 Log a Match
               </button>
             )}
-  </div>
-</div>
+          </div>
+        </div>
       </div>
 
       {/* divider */}
@@ -228,19 +229,19 @@ async function handleUndo() {
         publicIds={allPublicIds}
       />
 
-   <CreateLeagueModal
-  open={createOpen}
-  onClose={() => setCreateOpen(false)}
-  onCreated={(league) => {
-    // 1) Optimistic local updates (instant UI)
-    onLeagueCreated?.(league);                 // add to yourLeagues immediately
-    onSelectLeague(league.leagueId);           // switch UI to it
-    localStorage.setItem("leagueId", league.leagueId);
-    setCreateOpen(false);
-    void onRefreshLeagues?.();                 
-    void refreshMetrics();                     
-  }}
-/>
+      <CreateLeagueModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(league) => {
+          // 1) Optimistic local updates (instant UI)
+          onLeagueCreated?.(league);                 // add to yourLeagues immediately
+          onSelectLeague(league.leagueId);           // switch UI to it
+          localStorage.setItem("leagueId", league.leagueId);
+          setCreateOpen(false);
+          void onRefreshLeagues?.();
+          void refreshMetrics();
+        }}
+      />
 
       <LogMatchModal
         open={logOpen}
