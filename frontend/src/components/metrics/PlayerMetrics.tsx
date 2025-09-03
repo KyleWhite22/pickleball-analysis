@@ -2,7 +2,7 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useMetrics } from "./MetricsProvider";
 import { listMatches, type MatchDTO } from "../../lib/api";
-import { computeBestPartners, type BestPartnersMap } from "../../hooks/stats";
+import { computeElo, computeBestPartners, type BestPartnersMap } from "../../hooks/stats";
 
 type MaybeExtendedStanding = {
   playerId: string;
@@ -71,7 +71,15 @@ export default function PlayerMetrics({ leagueId }: { leagueId: string | null })
 
   // lookup best partner for current player
   const best = current ? partners[current.playerId] : null;
-
+const [elo, setElo] = useState<Record<string, number>>({});
+useEffect(() => {
+  (async () => {
+    if (!leagueId) return;            // make sure you have leagueId in this component props or context
+    const { matches } = await listMatches(leagueId, { limit: 500 });
+    setElo(computeElo(matches));      // <-- Elo map
+    setPartners(computeBestPartners(matches));
+  })();
+}, [leagueId]);
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
       <div className="mb-3 flex items-center justify-between">
@@ -114,7 +122,7 @@ export default function PlayerMetrics({ leagueId }: { leagueId: string | null })
             <StatBox label="Win %" value={`${(current.winPct * 100).toFixed(0)}%`} />
             <StatBox label="PF / PA" value={`${current.pointsFor}/${current.pointsAgainst}`} />
             <StatBox label="Point Diff" value={`${current.pointsFor - current.pointsAgainst}`} />
-            <StatBox label="ELO" value={current.elo != null ? Math.round(current.elo).toString() : "—"} />
+            <StatBox label="ELO" value={elo[current.playerId] != null ? Math.round(elo[current.playerId]).toString() : "—"} />
             <StatBox
               label="Highest Synergy Partner"
               value={
