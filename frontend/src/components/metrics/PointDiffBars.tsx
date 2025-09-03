@@ -78,7 +78,7 @@ export default function PointDiffBars() {
                 ))}
                 <LabelList
                   dataKey="posName"
-                  position="bottom"
+                  position="top"
                   offset={14}
                   fill="#22c55e"
                   style={{ pointerEvents: "none" }}
