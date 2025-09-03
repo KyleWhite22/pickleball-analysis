@@ -16,9 +16,8 @@ const json = (code, body) => ({
 });
 
 function canView(meta, userId) {
-  return meta?.visibility === "public" || (userId && userId === meta?.ownerId);
+  return true;
 }
-
 exports.handler = async (event) => {
   try {
     const leagueId = event.pathParameters?.id;

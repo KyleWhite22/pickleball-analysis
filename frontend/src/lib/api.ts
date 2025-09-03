@@ -57,7 +57,7 @@ async function asJson<T>(res: Response): Promise<T> {
     let detail = "";
     try {
       detail = await res.text();
-    } catch {}
+    } catch { }
     throw new Error(`HTTP ${res.status}${detail ? `: ${detail}` : ""}`);
   }
   return res.json() as Promise<T>;
@@ -129,7 +129,18 @@ export type MatchDTO = {
   score: { team1: number; team2: number };
   winnerTeam: 0 | 1 | null;
 };
+export type LeagueMetrics = {
+  leagueId: string;
+  summary?: { matchCount: number };
+  recentMatches: MatchDTO[];
+  updatedAt: string;
+};
 
+export async function getLeagueMetrics(leagueId: string): Promise<LeagueMetrics> {
+  const url = `${BASE}/leagues/${encodeURIComponent(leagueId)}/metrics?${nocache()}`;
+  const res = await fetch(url, { headers: await buildHeaders(), ...GET_INIT });
+  return asJson<LeagueMetrics>(res);
+}
 export async function listMatches(
   leagueId: string,
   opts?: { limit?: number; cursor?: string }

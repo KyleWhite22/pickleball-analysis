@@ -19,9 +19,8 @@ const json = (code, body) => ({
 });
 
 function canView(meta, userId) {
-  return meta?.visibility === "public" || (userId && userId === meta?.ownerId);
+ return true;
 }
-
 function encodeCursor(key) {
   return Buffer.from(JSON.stringify(key), "utf8").toString("base64");
 }

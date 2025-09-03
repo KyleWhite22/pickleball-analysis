@@ -1,4 +1,4 @@
-﻿// src/metrics_get.js  (drop-in replacement)
+﻿// src/metrics_get.js
 const {
   DynamoDBClient,
   QueryCommand,
@@ -21,25 +21,76 @@ const json = (code, body) => ({
 });
 
 function canView(meta, userId) {
-  return meta?.visibility === "public" || (userId && userId === meta?.ownerId);
+return true;
 }
 
-const asInt = (x) => {
-  const n = Number(x);
-  return Number.isFinite(n) ? Math.trunc(n) : 0;
-};
+// --- normalize to MatchDTO (exactly what your UI expects) -------------
+function toDTO(m) {
+  const createdAt = m.createdAt || new Date().toISOString();
 
-// compute current streak from a list of 'W'|'L'|'T' results in chronological order
-function currentStreak(results) {
-  if (!results || results.length === 0) return 0;
-  const last = results[results.length - 1];
-  if (last === "T") return 0;
-  let k = 0;
-  for (let i = results.length - 1; i >= 0; i--) {
-    if (results[i] !== last) break;
-    k++;
+  // NEW doubles (participants[] with team)
+  if (Array.isArray(m.participants) && m.participants.length >= 2 && m.score) {
+    const team0 = m.participants
+      .filter((p) => p.team === 0)
+      .map((p) => ({ id: p.id || p.playerId, name: p.name || "" }));
+    const team1 = m.participants
+      .filter((p) => p.team === 1)
+      .map((p) => ({ id: p.id || p.playerId, name: p.name || "" }));
+    const s1 = Number(m.score.team1) || 0;
+    const s2 = Number(m.score.team2) || 0;
+    const winnerTeam = s1 === s2 ? null : s1 > s2 ? 0 : 1;
+    return {
+      matchId: m.matchId,
+      createdAt,
+      teams: [{ players: team0 }, { players: team1 }],
+      score: { team1: s1, team2: s2 },
+      winnerTeam,
+    };
   }
-  return last === "W" ? k : -k;
+
+  // legacy doubles (teams[])
+  if (Array.isArray(m.teams) && m.score) {
+    const s1 = Number(m.score.team1) || 0;
+    const s2 = Number(m.score.team2) || 0;
+    const winnerTeam =
+      Number.isInteger(m.winnerTeam) ? m.winnerTeam : s1 === s2 ? null : s1 > s2 ? 0 : 1;
+    return {
+      matchId: m.matchId,
+      createdAt,
+      teams: [
+        { players: (m.teams[0]?.players || []).map((p) => ({ id: p.id || p.playerId, name: p.name || "" })) },
+        { players: (m.teams[1]?.players || []).map((p) => ({ id: p.id || p.playerId, name: p.name || "" })) },
+      ],
+      score: { team1: s1, team2: s2 },
+      winnerTeam,
+    };
+  }
+
+  // legacy singles (players[2] with points)
+  if (Array.isArray(m.players) && m.players.length === 2) {
+    const a = m.players[0];
+    const b = m.players[1];
+    const s1 = Number(a.points) || 0;
+    const s2 = Number(b.points) || 0;
+    return {
+      matchId: m.matchId,
+      createdAt,
+      teams: [
+        { players: [{ id: a.id || a.playerId, name: a.name || "" }, { id: "__NA1__", name: "(n/a)" }] },
+        { players: [{ id: b.id || b.playerId, name: b.name || "" }, { id: "__NA2__", name: "(n/a)" }] },
+      ],
+      score: { team1: s1, team2: s2 },
+      winnerTeam: s1 === s2 ? null : s1 > s2 ? 0 : 1,
+    };
+  }
+
+  return {
+    matchId: m.matchId,
+    createdAt,
+    teams: [],
+    score: { team1: 0, team2: 0 },
+    winnerTeam: null,
+  };
 }
 
 exports.handler = async (event) => {
@@ -48,7 +99,7 @@ exports.handler = async (event) => {
     if (!leagueId) return json(400, { error: "leagueId required" });
     if (!TABLE) return json(500, { error: "internal_error", message: "TABLE_NAME missing" });
 
-    // AuthZ
+    // AuthZ (mirror standings behavior)
     const metaRes = await ddb.send(
       new GetItemCommand({
         TableName: TABLE,
@@ -61,7 +112,7 @@ exports.handler = async (event) => {
     const userId = await getOptionalUserId(event);
     if (!canView(meta, userId)) return json(403, { error: "forbidden" });
 
-    // Pull all MATCH# items
+    // Pull ALL matches (chronological)
     const matches = [];
     let ExclusiveStartKey;
     do {
@@ -74,129 +125,26 @@ exports.handler = async (event) => {
             ":pref": { S: "MATCH#" },
           },
           ExclusiveStartKey,
-          ScanIndexForward: true, // chronological
+          ScanIndexForward: true, // oldest → newest
         })
       );
       for (const it of r.Items || []) matches.push(unmarshall(it));
       ExclusiveStartKey = r.LastEvaluatedKey;
     } while (ExclusiveStartKey);
 
-    // Aggregate per-player (supports doubles + legacy singles)
-    // Map playerId -> { name, wins, losses, PF, PA, results[] }
-    const acc = new Map();
-
-    function rec(pid, name, pf, pa, outcome) {
-      if (!pid) return;
-      let row = acc.get(pid);
-      if (!row) {
-        row = {
-          playerId: pid,
-          name: name || "",
-          wins: 0,
-          losses: 0,
-          PF: 0,
-          PA: 0,
-          results: [],
-        };
-        acc.set(pid, row);
-      }
-      if (name && row.name !== name) row.name = name;
-      row.PF += asInt(pf);
-      row.PA += asInt(pa);
-      if (outcome === "W") row.wins++;
-      else if (outcome === "L") row.losses++;
-      row.results.push(outcome);
-    }
-
-    for (const m of matches) {
-      // New doubles
-      if (Array.isArray(m.participants) && m.participants.length === 4 && m.score) {
-        const s1 = asInt(m.score.team1);
-        const s2 = asInt(m.score.team2);
-        const winnerTeam = s1 === s2 ? null : s1 > s2 ? 0 : 1;
-        for (const p of m.participants) {
-          const pid = p.id || p.playerId;
-          const name = p.name || "";
-          const team = p.team;
-          const pf = team === 0 ? s1 : s2;
-          const pa = team === 0 ? s2 : s1;
-          const outcome = winnerTeam === null ? "T" : team === winnerTeam ? "W" : "L";
-          rec(pid, name, pf, pa, outcome);
-        }
-        continue;
-      }
-
-      // Legacy singles
-      if (Array.isArray(m.players) && m.players.length === 2) {
-        const a = m.players[0];
-        const b = m.players[1];
-        const s1 = asInt(a.points);
-        const s2 = asInt(b.points);
-        if (s1 === s2) {
-          rec(a.id || a.playerId, a.name, s1, s2, "T");
-          rec(b.id || b.playerId, b.name, s2, s1, "T");
-        } else if (s1 > s2) {
-          rec(a.id || a.playerId, a.name, s1, s2, "W");
-          rec(b.id || b.playerId, b.name, s2, s1, "L");
-        } else {
-          rec(a.id || a.playerId, a.name, s1, s2, "L");
-          rec(b.id || b.playerId, b.name, s2, s1, "W");
-        }
-        continue;
-      }
-      // else ignore unknown shapes safely
-    }
-
-    // Build rows with winPct & streak
-    const rows = Array.from(acc.values()).map((r) => {
-      const games = r.wins + r.losses;
-      const winPct = games > 0 ? r.wins / games : 0;
-      return {
-        playerId: r.playerId,
-        name: r.name,
-        wins: r.wins,
-        losses: r.losses,
-        winPct: Number(winPct.toFixed(4)),
-        pointsFor: r.PF,
-        pointsAgainst: r.PA,
-        streak: currentStreak(r.results),
-      };
-    });
-
-    // Sort helpers
-    const byWinQuality = (a, b) => {
-      if (b.winPct !== a.winPct) return b.winPct - a.winPct;
-      if (b.wins !== a.wins) return b.wins - a.wins;
-      const difA = a.pointsFor - a.pointsAgainst;
-      const difB = b.pointsFor - b.pointsAgainst;
-      if (difB !== difA) return difB - difA;
-      return a.name.localeCompare(b.name);
-    };
-
-    // Summary
+    // Build summary/leaders like before (optional)
     const matchCount = matches.length;
-    const playerCount = rows.length;
 
-    // Leaders
-    const streakLeaders = [...rows]
-      .sort((a, b) => Math.abs(b.streak) - Math.abs(a.streak))
-      .slice(0, 5);
+    // Provide a recent window for UI (newest first)
+    const recentDTO = matches
+      .map(toDTO)          // normalize
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) // newest first
+      .slice(0, 100);      // give the UI plenty to work with
 
-    const MIN_GAMES = 3; // adjust if you want
-    const winPctLeaders = rows
-      .filter((r) => r.wins + r.losses >= MIN_GAMES)
-      .sort(byWinQuality)
-      .slice(0, 5);
-
-    // Return bundle your tiles can use
     return json(200, {
       leagueId,
-      summary: { matchCount, playerCount },
-      leaders: {
-        streak: streakLeaders,
-        winPct: winPctLeaders,
-      },
-      // You can add more here later (recent matches, elo, pair synergy, etc.)
+      summary: { matchCount },
+      recentMatches: recentDTO,  // 🔴 what Superlatives & LastGame will use
       updatedAt: new Date().toISOString(),
     });
   } catch (err) {

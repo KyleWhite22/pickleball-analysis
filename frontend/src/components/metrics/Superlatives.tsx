@@ -1,32 +1,36 @@
-// src/components/metrics/Superlatives.tsx
 import { useEffect, useState } from "react";
-import { listMatches, type MatchDTO } from "../../lib/api";
+import { getLeagueMetrics, type MatchDTO } from "../../lib/api";
 import { computeSuperlatives, type Superlatives } from "../../hooks/stats";
 
 export default function Superlatives({ leagueId }: { leagueId: string | null }) {
   const [data, setData] = useState<Superlatives>({});
   const [loading, setLoading] = useState(false);
 
-useEffect(() => {
-  let alive = true;
-  // clear immediately on league change so UI reflects loading/new league
-  setData({});
-  setLoading(false);
+  useEffect(() => {
+    let alive = true;
+    setData({});
+    setLoading(false);
 
-  (async () => {
-    if (!leagueId) return;
-    setLoading(true);
-    try {
-      const { matches } = await listMatches(leagueId, { limit: 1000 });
-      if (!alive) return;
-      setData(computeSuperlatives(matches as MatchDTO[]));
-    } finally {
-      if (alive) setLoading(false);
-    }
-  })();
+    (async () => {
+      if (!leagueId) return;
+      setLoading(true);
+      try {
+        const { recentMatches } = await getLeagueMetrics(leagueId);
+        if (!alive) return;
+        setData(computeSuperlatives(recentMatches as MatchDTO[]));
+      } catch (e) {
+        console.warn("[Superlatives] metrics load failed:", e);
+        if (!alive) return;
+        setData({});
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
 
-  return () => { alive = false; };
-}, [leagueId]);
+    return () => {
+      alive = false;
+    };
+  }, [leagueId]);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
@@ -38,7 +42,7 @@ useEffect(() => {
         <p className="text-sm text-zinc-400">Select a league</p>
       ) : (
         <ul className="space-y-2 text-sm">
-           <Item
+          <Item
             label="King of the Court"
             value={
               data.kingOfTheCourt
@@ -64,7 +68,11 @@ useEffect(() => {
           />
           <Item
             label="Longest Win Streak"
-            value={data.longestWinStreak ? `${data.longestWinStreak.name} (${data.longestWinStreak.streak})` : "—"}
+            value={
+              data.longestWinStreak
+                ? `${data.longestWinStreak.name} (${data.longestWinStreak.streak})`
+                : "—"
+            }
           />
           <Item
             label="Upset King"
@@ -72,7 +80,11 @@ useEffect(() => {
           />
           <Item
             label="Dominator"
-            value={data.dominator ? `${data.dominator.name} (avg margin ${data.dominator.avgMargin.toFixed(1)})` : "—"}
+            value={
+              data.dominator
+                ? `${data.dominator.name} (avg margin ${data.dominator.avgMargin.toFixed(1)})`
+                : "—"
+            }
           />
           <Item
             label="Most Matches Played"
@@ -80,13 +92,18 @@ useEffect(() => {
           />
           <Item
             label="Partner Hopper"
-            value={data.partnerHopper ? `${data.partnerHopper.name} (${data.partnerHopper.partners} partners)` : "—"}
-          />         
+            value={
+              data.partnerHopper
+                ? `${data.partnerHopper.name} (${data.partnerHopper.partners} partners)`
+                : "—"
+            }
+          />
         </ul>
       )}
     </div>
   );
 }
+
 function Item({ label, value }: { label: string; value: string }) {
   return (
     <li className="flex flex-wrap justify-between gap-y-1">
