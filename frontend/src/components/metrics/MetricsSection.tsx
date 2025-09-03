@@ -34,21 +34,22 @@ type Props = { leagueId: string | null };
   );
 }*/
 
+
 export default function MetricsSection({ leagueId }: Props) {
   return (
     <section className="space-y-6">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Left column: standings + chart */}
         <div className="space-y-6">
           <Standings />
-          <PlayerMetrics leagueId={leagueId} />
-          <Superlatives leagueId={leagueId} />
+          <StreakDivergingChart />
+          {/* key forces a fresh mount when league changes */}
+          <Superlatives key={leagueId ?? "none"} leagueId={leagueId} />
         </div>
 
-        {/* Right column: last game + player metrics */}
         <div className="space-y-6">
           <LastGame leagueId={leagueId} />
-<StreakDivergingChart />        </div>
+          <PlayerMetrics leagueId={leagueId} />
+        </div>
       </div>
     </section>
   );

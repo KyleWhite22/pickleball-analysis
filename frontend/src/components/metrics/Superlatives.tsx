@@ -7,21 +7,26 @@ export default function Superlatives({ leagueId }: { leagueId: string | null }) 
   const [data, setData] = useState<Superlatives>({});
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      if (!leagueId) { setData({}); return; }
-      setLoading(true);
-      try {
-        const { matches } = await listMatches(leagueId, { limit: 1000 });
-        if (!alive) return;
-        setData(computeSuperlatives(matches as MatchDTO[]));
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [leagueId]);
+useEffect(() => {
+  let alive = true;
+  // clear immediately on league change so UI reflects loading/new league
+  setData({});
+  setLoading(false);
+
+  (async () => {
+    if (!leagueId) return;
+    setLoading(true);
+    try {
+      const { matches } = await listMatches(leagueId, { limit: 1000 });
+      if (!alive) return;
+      setData(computeSuperlatives(matches as MatchDTO[]));
+    } finally {
+      if (alive) setLoading(false);
+    }
+  })();
+
+  return () => { alive = false; };
+}, [leagueId]);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
