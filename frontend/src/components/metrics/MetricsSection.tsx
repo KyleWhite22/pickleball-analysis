@@ -3,6 +3,7 @@ import Standings from "./Standings";
 import StreakDivergingChart from "./StreakDivergingChart";
 import LastGame from "./LastGame";
 import PlayerMetrics from "./PlayerMetrics";
+import Superlatives from "./Superlatives";
 type Props = { leagueId: string | null };
 
 /*function KPIRow() {
@@ -41,6 +42,7 @@ export default function MetricsSection({ leagueId }: Props) {
         <div className="space-y-6">
           <Standings />
           <PlayerMetrics leagueId={leagueId} />
+          <Superlatives leagueId={leagueId} />
         </div>
 
         {/* Right column: last game + player metrics */}

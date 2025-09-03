@@ -246,3 +246,271 @@ export function computeGrades(
 
   return out;
 }
+export type Superlatives = {
+  mostClutch?: { playerId: string; name: string; avgWinMargin: number };
+  mostHeatedRivalry?: {
+    aId: string; aName: string;
+    bId: string; bName: string;
+    winsA: number; winsB: number; total: number;
+  };
+  longestWinStreak?: { playerId: string; name: string; streak: number };
+  upsetKing?: { playerId: string; name: string; upsets: number };
+  dominator?: { playerId: string; name: string; avgMargin: number };
+  ironman?: { playerId: string; name: string; matches: number };
+  partnerHopper?: { playerId: string; name: string; partners: number };
+  mostConsistent?: { playerId: string; name: string; stdDev: number };
+
+  // NEW: who has been #1 most often across snapshots
+  kingOfTheCourt?: { playerId: string; name: string; matchesAtFirst: number };
+};
+export function computeSuperlatives(matches: MatchDTO[]): Superlatives {
+  // guard + chronological
+  const ms = [...matches].sort((a,b)=>new Date(a.createdAt).getTime()-new Date(b.createdAt).getTime());
+  if (!ms.length) return {};
+
+  // id->name map
+  const nameOf: Record<string,string> = {};
+  for (const m of ms) {
+    for (const t of m.teams) for (const p of (t.players||[])) nameOf[p.id] = p.name || p.id;
+  }
+
+  // per-player aggregates
+  type Agg = {
+    wins: number;
+    losses: number;
+    winMargins: number[];          // only winning margins
+    pointDiffs: number[];          // all matches (+/-)
+    matches: number;
+    partners: Set<string>;
+    curStreak: number;
+    bestStreak: number;
+    upsets: number;                // wins vs higher elo team (>=100)
+    elo?: number;                  // current running elo
+  };
+  const agg: Record<string, Agg> = {};
+  const ensure = (id: string) => (agg[id] ??= {
+    wins:0, losses:0, winMargins:[], pointDiffs:[], matches:0, partners:new Set(), curStreak:0, bestStreak:0, upsets:0, elo:1000
+  });
+
+  // KOTC: counts of how many snapshots at #1 for each player
+  const firstCounts: Record<string, number> = {};
+  const countTiesAsFirst = true; // give credit to all co-leaders
+
+  // same ordering as your leaderboard default
+  const compareRows = (a: { wins:number; winPct:number; pointDiff:number; name:string }, b: typeof a) =>
+    b.wins - a.wins ||
+    b.winPct - a.winPct ||
+    b.pointDiff - a.pointDiff ||
+    a.name.localeCompare(b.name);
+
+  // simple Elo (same as in your file): team rating = avg of players
+  const K = 24;
+  const exp = (ra:number, rb:number) => 1/(1+Math.pow(10,(rb-ra)/400));
+
+  // head-to-head pair tracker (sorted key: id1|id2)
+  type H2H = { a: string; b: string; winsA: number; winsB: number; total: number };
+  const h2h: Record<string,H2H> = {};
+
+  for (const m of ms) {
+    const [t1,t2] = m.teams;
+    const A = t1?.players?.map(p=>p.id) ?? [];
+    const B = t2?.players?.map(p=>p.id) ?? [];
+    if (A.length!==2 || B.length!==2) continue;
+
+    // init players
+    A.concat(B).forEach(ensure);
+
+    // partners sets
+    ensure(A[0]).partners.add(A[1]); ensure(A[1]).partners.add(A[0]);
+    ensure(B[0]).partners.add(B[1]); ensure(B[1]).partners.add(B[0]);
+
+    // score / margin from team1 POV
+    const s1 = m.score.team1|0, s2 = m.score.team2|0;
+
+    // running Elo before update (for upset detection)
+    const rA = (ensure(A[0]).elo! + ensure(A[1]).elo!) / 2;
+    const rB = (ensure(B[0]).elo! + ensure(B[1]).elo!) / 2;
+
+    // result
+    let sTeam1 = 0.5, sTeam2 = 0.5;
+    if (m.winnerTeam === 0) { sTeam1 = 1; sTeam2 = 0; }
+    if (m.winnerTeam === 1) { sTeam1 = 0; sTeam2 = 1; }
+
+    // update aggregates (wins/losses, margins, streaks, pointDiffs, upset)
+    const applyResult = (ids: string[], won: boolean, pdiff: number, oppTeamAvgElo: number, myTeamAvgElo: number) => {
+      for (const id of ids) {
+        const a = ensure(id);
+        a.matches++;
+        a.pointDiffs.push(pdiff);
+        if (won) {
+          a.wins++;
+          a.winMargins.push(Math.abs(pdiff));
+          a.curStreak = Math.max(1, a.curStreak+1);
+          a.bestStreak = Math.max(a.bestStreak, a.curStreak);
+          if (oppTeamAvgElo - myTeamAvgElo >= 100) a.upsets++;
+        } else {
+          a.losses++;
+          a.curStreak = 0;
+        }
+      }
+    };
+
+    applyResult(A, sTeam1 === 1, s1 - s2, rB, rA);
+    applyResult(B, sTeam2 === 1, s2 - s1, rA, rB);
+
+    // head-to-head: award wins to individuals vs each opponent pair
+    const credit = (winners: string[], losers: string[], wTeam: 0|1|2) => {
+      for (const a of winners) for (const b of losers) {
+        const [id1,id2] = [a,b].sort();
+        const key = `${id1}|${id2}`;
+        if (!h2h[key]) h2h[key] = { a: id1, b: id2, winsA: 0, winsB: 0, total: 0 };
+        if (wTeam === 1) {
+          if (a === id1) h2h[key].winsA++; else h2h[key].winsB++;
+        } else if (wTeam === 2) {
+          if (a === id1) h2h[key].winsA++; else h2h[key].winsB++;
+        }
+        h2h[key].total++;
+      }
+    };
+    if (sTeam1 === 1) credit(A,B,1); else if (sTeam2 === 1) credit(B,A,2); else credit(A,B,1);
+
+    // Elo update
+    const e1 = exp(rA, rB);
+    const e2 = 1 - e1;
+    const d1 = K * (sTeam1 - e1);
+    const d2 = K * (sTeam2 - e2);
+    agg[A[0]].elo! += d1/2; agg[A[1]].elo! += d1/2;
+    agg[B[0]].elo! += d2/2; agg[B[1]].elo! += d2/2;
+
+    // KOTC: snapshot table after this match and credit leaders
+    const table = Object.entries(agg).map(([id, a]) => {
+      const games = a.wins + a.losses || 1;
+      return {
+        id,
+        name: nameOf[id] || id,
+        wins: a.wins,
+        winPct: a.wins / games,
+        pointDiff: a.pointDiffs.reduce((s,x)=>s+x,0), // PF-PA summed each match
+      };
+    }).sort(compareRows);
+
+    if (table.length) {
+      const first = table[0];
+      if (countTiesAsFirst) {
+        const leaders = table.filter(r => compareRows(r, first) === 0);
+        leaders.forEach(r => { firstCounts[r.id] = (firstCounts[r.id] ?? 0) + 1; });
+      } else {
+        firstCounts[first.id] = (firstCounts[first.id] ?? 0) + 1;
+      }
+    }
+  }
+
+  // helpers
+  const avg = (xs:number[]) => xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : 0;
+  const stdev = (xs:number[]) => {
+    if (xs.length < 2) return Infinity;
+    const m = avg(xs);
+    const v = avg(xs.map(x => (x-m)*(x-m)));
+    return Math.sqrt(v);
+  };
+
+  // compute winners
+  let mostClutch, dominator, ironman, partnerHopper, mostConsistent, longestWinStreak, upsetKing;
+
+  for (const id in agg) {
+    const a = agg[id];
+    const nm = nameOf[id] || id;
+
+    if (a.winMargins.length) {
+      const m = avg(a.winMargins);
+      if (!mostClutch || m < mostClutch.avgWinMargin) {
+        mostClutch = { playerId:id, name:nm, avgWinMargin:m };
+      }
+      if (!dominator || m > dominator.avgMargin) {
+        dominator = { playerId:id, name:nm, avgMargin:m };
+      }
+    }
+
+    if (!ironman || a.matches > ironman.matches) {
+      ironman = { playerId:id, name:nm, matches:a.matches };
+    }
+
+    if (!partnerHopper || a.partners.size > partnerHopper.partners) {
+      partnerHopper = { playerId:id, name:nm, partners:a.partners.size };
+    }
+
+    const sd = stdev(a.pointDiffs);
+    if (!mostConsistent || sd < mostConsistent.stdDev) {
+      mostConsistent = { playerId:id, name:nm, stdDev:sd };
+    }
+
+    if (!longestWinStreak || a.bestStreak > longestWinStreak.streak) {
+      longestWinStreak = { playerId:id, name:nm, streak:a.bestStreak };
+    }
+
+    if (!upsetKing || a.upsets > upsetKing.upsets) {
+      upsetKing = { playerId:id, name:nm, upsets:a.upsets };
+    }
+  }
+
+  // Heated rivalry: closest record among pairs with decent volume
+  let mostHeatedRivalry: Superlatives["mostHeatedRivalry"];
+  for (const key in h2h) {
+    const r = h2h[key];
+    if (r.total < 6) continue;
+    const diff = Math.abs(r.winsA - r.winsB);
+    const closeness = diff / r.total; // lower is better
+    if (
+      !mostHeatedRivalry ||
+      closeness < Math.abs(mostHeatedRivalry.winsA - mostHeatedRivalry.winsB) / mostHeatedRivalry.total ||
+      (closeness === Math.abs(mostHeatedRivalry.winsA - mostHeatedRivalry.winsB) / mostHeatedRivalry.total && r.total > mostHeatedRivalry.total)
+    ) {
+      mostHeatedRivalry = {
+        aId: r.a, aName: nameOf[r.a] || r.a,
+        bId: r.b, bName: nameOf[r.b] || r.b,
+        winsA: r.winsA, winsB: r.winsB, total: r.total
+      };
+    }
+  }
+
+  // KOTC: choose the king (break ties by final table)
+  let kingOfTheCourt: Superlatives["kingOfTheCourt"];
+  const fcEntries = Object.entries(firstCounts);
+  if (fcEntries.length) {
+    const max = Math.max(...fcEntries.map(([_, c]) => c));
+    const tiedIds = fcEntries.filter(([_, c]) => c === max).map(([id]) => id);
+
+    if (tiedIds.length === 1) {
+      const id = tiedIds[0];
+      kingOfTheCourt = { playerId: id, name: nameOf[id] || id, matchesAtFirst: firstCounts[id] };
+    } else {
+      // build final table to break ties deterministically
+      const finalRows = Object.keys(agg).map(id => {
+        const a = agg[id];
+        const games = a.wins + a.losses || 1;
+        return {
+          id,
+          name: nameOf[id] || id,
+          wins: a.wins,
+          winPct: a.wins / games,
+          pointDiff: a.pointDiffs.reduce((s,x)=>s+x,0),
+        };
+      }).sort(compareRows);
+
+      const winner = finalRows.find(r => tiedIds.includes(r.id))!;
+      kingOfTheCourt = { playerId: winner.id, name: winner.name, matchesAtFirst: firstCounts[winner.id] };
+    }
+  }
+
+  return {
+    mostClutch,
+    mostHeatedRivalry,
+    longestWinStreak,
+    upsetKing,
+    dominator,
+    ironman,
+    partnerHopper,
+    mostConsistent,
+    kingOfTheCourt, // <-- included with the rest
+  };
+}
