@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { getLeagueMetrics, type MatchDTO } from "../../lib/api";
 import { computeSuperlatives, type Superlatives } from "../../hooks/stats";
-
+import { useMetrics } from "./MetricsProvider";
 export default function Superlatives({ leagueId }: { leagueId: string | null }) {
   const [data, setData] = useState<Superlatives>({});
   const [loading, setLoading] = useState(false);
-
+const { version } = useMetrics();
   useEffect(() => {
     let alive = true;
     setData({});
@@ -30,7 +30,7 @@ export default function Superlatives({ leagueId }: { leagueId: string | null }) 
     return () => {
       alive = false;
     };
-  }, [leagueId]);
+  }, [leagueId, version]);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
@@ -91,13 +91,13 @@ export default function Superlatives({ leagueId }: { leagueId: string | null }) 
             value={data.ironman ? `${data.ironman.name} (${data.ironman.matches} matches)` : "—"}
           />
           <Item
-            label="Partner Hopper"
-            value={
-              data.partnerHopper
-                ? `${data.partnerHopper.name} (${data.partnerHopper.partners} partners)`
-                : "—"
-            }
-          />
+  label="Dynamic Duo"
+  value={
+    data.highestDynamicDuo
+      ? `${data.highestDynamicDuo.aName} & ${data.highestDynamicDuo.bName} (${data.highestDynamicDuo.wins} wins, ${data.highestDynamicDuo.games} games, ${(data.highestDynamicDuo.winPct*100).toFixed(0)}%)`
+      : "—"
+  }
+/>
         </ul>
       )}
     </div>

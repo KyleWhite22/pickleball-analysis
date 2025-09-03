@@ -124,6 +124,7 @@ exports.handler = async (event) => {
             ":pk": { S: `LEAGUE#${leagueId}` },
             ":pref": { S: "MATCH#" },
           },
+          ConsistentRead: true,  
           ExclusiveStartKey,
           ScanIndexForward: true, // oldest → newest
         })

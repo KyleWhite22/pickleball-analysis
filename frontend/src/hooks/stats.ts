@@ -1,5 +1,7 @@
-// src/hooks/stats.ts  (or src/utils/stats.ts)
+// src/hooks/stats.ts
 import type { MatchDTO } from "../lib/api";
+
+/* ---------------------------- Best Partners (per player) ---------------------------- */
 
 export type PartnerStats = {
   partnerId: string;
@@ -34,8 +36,7 @@ export function computeBestPartners(matches: MatchDTO[]): BestPartnersMap {
       for (let i = 0; i < players.length; i++) {
         const player = players[i];
         const partner = players[1 - i];
-
-        if (!player || !partner) continue; // skip if malformed
+        if (!player || !partner) continue;
 
         if (!map[player.id]) map[player.id] = {};
         if (!map[player.id][partner.id]) {
@@ -56,20 +57,13 @@ export function computeBestPartners(matches: MatchDTO[]): BestPartnersMap {
 
   // choose best partner (highest win%) per player
   const best: BestPartnersMap = {};
-
   for (const playerId in map) {
     let bestEntry: PartnerStats | null = null;
-
     for (const partnerId in map[playerId]) {
       const entry = map[playerId][partnerId];
       const pct = entry.games > 0 ? entry.wins / entry.games : 0;
-
-      if (
-        !bestEntry ||
-        pct > (bestEntry.games > 0 ? bestEntry.wins / bestEntry.games : 0)
-      ) {
-        bestEntry = entry;
-      }
+      const bestPct = bestEntry ? (bestEntry.games > 0 ? bestEntry.wins / bestEntry.games : 0) : -1;
+      if (!bestEntry || pct > bestPct) bestEntry = entry;
     }
 
     best[playerId] = bestEntry
@@ -86,6 +80,8 @@ export function computeBestPartners(matches: MatchDTO[]): BestPartnersMap {
   return best;
 }
 
+/* ------------------------------------- Elo ------------------------------------- */
+
 export type EloOptions = {
   k?: number;       // sensitivity (typical 16–40)
   init?: number;    // starting rating
@@ -94,7 +90,6 @@ export type EloOptions = {
 const DEFAULT_ELO = { k: 24, init: 1000 };
 
 function expectedScore(rA: number, rB: number) {
-  // classic Elo expectation
   return 1 / (1 + Math.pow(10, (rB - rA) / 400));
 }
 
@@ -111,41 +106,33 @@ export function computeElo(
   const { k, init } = { ...DEFAULT_ELO, ...opts };
   const rating: Record<string, number> = {};
 
-  // sort by time so rating evolves correctly
   const sorted = [...matches].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
 
   for (const m of sorted) {
     const [t1, t2] = m.teams;
-
-    // players (guard against malformed data)
     const p1a = t1?.players?.[0]?.id, p1b = t1?.players?.[1]?.id;
     const p2a = t2?.players?.[0]?.id, p2b = t2?.players?.[1]?.id;
     if (!p1a || !p1b || !p2a || !p2b) continue;
 
-    // ensure initial ratings
     for (const pid of [p1a, p1b, p2a, p2b]) {
       if (rating[pid] == null) rating[pid] = init;
     }
 
-    // team ratings = average of current player ratings
     const rT1 = (rating[p1a] + rating[p1b]) / 2;
     const rT2 = (rating[p2a] + rating[p2b]) / 2;
 
     const exp1 = expectedScore(rT1, rT2);
     const exp2 = 1 - exp1;
 
-    // outcome
-    let s1 = 0.5, s2 = 0.5; // default tie/unknown
+    let s1 = 0.5, s2 = 0.5;
     if (m.winnerTeam === 0) { s1 = 1; s2 = 0; }
     if (m.winnerTeam === 1) { s1 = 0; s2 = 1; }
 
-    // team deltas
     const d1 = k * (s1 - exp1);
     const d2 = k * (s2 - exp2);
 
-    // split the team delta equally to both players
     rating[p1a] += d1 / 2;
     rating[p1b] += d1 / 2;
     rating[p2a] += d2 / 2;
@@ -154,11 +141,11 @@ export function computeElo(
 
   return rating;
 }
-// --- Grading helpers ---------------------------------------------------------
+
+/* ------------------------------ Grading helpers ------------------------------ */
 
 export type GradeLetter = "S" | "A" | "B" | "C" | "D" | "F";
 
-/** Map percentile (0..100) to letter grade. */
 export function gradeFromPercentile(p: number): GradeLetter {
   if (p >= 90) return "S";
   if (p >= 75) return "A";
@@ -168,7 +155,6 @@ export function gradeFromPercentile(p: number): GradeLetter {
   return "F";
 }
 
-/** Safe z-score (if stdev=0, return 0). */
 function z(x: number, mean: number, sd: number) {
   return sd > 0 ? (x - mean) / sd : 0;
 }
@@ -184,14 +170,6 @@ export type StandLike = {
 
 export type EloMap = Record<string, number>;
 
-/**
- * Compute a composite score per player (z-scored components):
- *   - Win% (weight 0.6)
- *   - Point Diff per Game (weight 0.25)
- *   - Elo (weight 0.15) - optional
- *
- * Returns { playerId: compositeScore }
- */
 export function computeCompositeScores(
   standings: StandLike[],
   elo: EloMap = {}
@@ -225,10 +203,6 @@ export function computeCompositeScores(
   return out;
 }
 
-/**
- * Turn composite scores into percentile → letter grade.
- * Returns { playerId: { percentile: 0..100, grade: "S"|"A"|... } }
- */
 export function computeGrades(
   composite: Record<string, number>
 ): Record<string, { percentile: number; grade: GradeLetter }> {
@@ -239,13 +213,16 @@ export function computeGrades(
   const out: Record<string, { percentile: number; grade: GradeLetter }> = {};
 
   sorted.forEach(([pid], i) => {
-    const pct = (i / (sorted.length - 1 || 1)) * 100; // 0..100
+    const pct = (i / (sorted.length - 1 || 1)) * 100;
     const grade = gradeFromPercentile(pct);
     out[pid] = { percentile: Math.round(pct), grade };
   });
 
   return out;
 }
+
+/* -------------------------------- Superlatives -------------------------------- */
+
 export type Superlatives = {
   mostClutch?: { playerId: string; name: string; avgWinMargin: number };
   mostHeatedRivalry?: {
@@ -259,57 +236,80 @@ export type Superlatives = {
   ironman?: { playerId: string; name: string; matches: number };
   partnerHopper?: { playerId: string; name: string; partners: number };
   mostConsistent?: { playerId: string; name: string; stdDev: number };
-
-  // NEW: who has been #1 most often across snapshots
   kingOfTheCourt?: { playerId: string; name: string; matchesAtFirst: number };
+
+  // NEW
+  highestDynamicDuo?: {
+    aId: string; aName: string;
+    bId: string; bName: string;
+    wins: number;
+    games: number;
+    winPct: number; // 0..1
+  };
 };
+
 export function computeSuperlatives(matches: MatchDTO[]): Superlatives {
   // guard + chronological
-  const ms = [...matches].sort((a,b)=>new Date(a.createdAt).getTime()-new Date(b.createdAt).getTime());
+  const ms = [...matches].sort(
+    (a,b)=>new Date(a.createdAt).getTime()-new Date(b.createdAt).getTime()
+  );
   if (!ms.length) return {};
 
-  // id->name map
+  // id->name
   const nameOf: Record<string,string> = {};
   for (const m of ms) {
-    for (const t of m.teams) for (const p of (t.players||[])) nameOf[p.id] = p.name || p.id;
+    for (const t of m.teams) for (const p of (t.players||[])) {
+      nameOf[p.id] = p.name || p.id;
+    }
   }
 
   // per-player aggregates
   type Agg = {
     wins: number;
     losses: number;
-    winMargins: number[];          // only winning margins
-    pointDiffs: number[];          // all matches (+/-)
+    winMargins: number[];
+    pointDiffs: number[];
     matches: number;
     partners: Set<string>;
     curStreak: number;
     bestStreak: number;
-    upsets: number;                // wins vs higher elo team (>=100)
-    elo?: number;                  // current running elo
+    upsets: number;
+    elo: number;
   };
   const agg: Record<string, Agg> = {};
   const ensure = (id: string) => (agg[id] ??= {
-    wins:0, losses:0, winMargins:[], pointDiffs:[], matches:0, partners:new Set(), curStreak:0, bestStreak:0, upsets:0, elo:1000
+    wins:0, losses:0, winMargins:[], pointDiffs:[], matches:0,
+    partners:new Set(), curStreak:0, bestStreak:0, upsets:0, elo:1000
   });
 
-  // KOTC: counts of how many snapshots at #1 for each player
+  // KOTC
   const firstCounts: Record<string, number> = {};
-  const countTiesAsFirst = true; // give credit to all co-leaders
+  const countTiesAsFirst = true;
 
-  // same ordering as your leaderboard default
-  const compareRows = (a: { wins:number; winPct:number; pointDiff:number; name:string }, b: typeof a) =>
+  // sort helper used for KOTC snapshots
+  const compareRows = (
+    a: { wins:number; winPct:number; pointDiff:number; name:string },
+    b: { wins:number; winPct:number; pointDiff:number; name:string }
+  ) =>
     b.wins - a.wins ||
     b.winPct - a.winPct ||
     b.pointDiff - a.pointDiff ||
     a.name.localeCompare(b.name);
 
-  // simple Elo (same as in your file): team rating = avg of players
+  // Elo helpers
   const K = 24;
   const exp = (ra:number, rb:number) => 1/(1+Math.pow(10,(rb-ra)/400));
 
-  // head-to-head pair tracker (sorted key: id1|id2)
+  // H2H (closest rivalry)
   type H2H = { a: string; b: string; winsA: number; winsB: number; total: number };
   const h2h: Record<string,H2H> = {};
+  const pairKey = (x: string, y: string) => (x < y ? `${x}|${y}` : `${y}|${x}`);
+
+  // Dynamic duo (same-team)
+  type Duo = { a: string; b: string; wins: number; games: number };
+  const duos: Record<string, Duo> = {};
+  const duoKey = (x: string, y: string) => (x < y ? `${x}|${y}` : `${y}|${x}`);
+  const isNA = (id?: string) => !!id && id.startsWith("__NA");
 
   for (const m of ms) {
     const [t1,t2] = m.teams;
@@ -320,23 +320,18 @@ export function computeSuperlatives(matches: MatchDTO[]): Superlatives {
     // init players
     A.concat(B).forEach(ensure);
 
-    // partners sets
+    // partners
     ensure(A[0]).partners.add(A[1]); ensure(A[1]).partners.add(A[0]);
     ensure(B[0]).partners.add(B[1]); ensure(B[1]).partners.add(B[0]);
 
-    // score / margin from team1 POV
-    const s1 = m.score.team1|0, s2 = m.score.team2|0;
+    // scores, outcomes
+    const s1 = (m.score.team1|0), s2 = (m.score.team2|0);
+    const rA = (ensure(A[0]).elo + ensure(A[1]).elo) / 2;
+    const rB = (ensure(B[0]).elo + ensure(B[1]).elo) / 2;
+    const t1Won = m.winnerTeam === 0;
+    const t2Won = m.winnerTeam === 1;
 
-    // running Elo before update (for upset detection)
-    const rA = (ensure(A[0]).elo! + ensure(A[1]).elo!) / 2;
-    const rB = (ensure(B[0]).elo! + ensure(B[1]).elo!) / 2;
-
-    // result
-    let sTeam1 = 0.5, sTeam2 = 0.5;
-    if (m.winnerTeam === 0) { sTeam1 = 1; sTeam2 = 0; }
-    if (m.winnerTeam === 1) { sTeam1 = 0; sTeam2 = 1; }
-
-    // update aggregates (wins/losses, margins, streaks, pointDiffs, upset)
+    // per-player accumulate
     const applyResult = (ids: string[], won: boolean, pdiff: number, oppTeamAvgElo: number, myTeamAvgElo: number) => {
       for (const id of ids) {
         const a = ensure(id);
@@ -345,7 +340,7 @@ export function computeSuperlatives(matches: MatchDTO[]): Superlatives {
         if (won) {
           a.wins++;
           a.winMargins.push(Math.abs(pdiff));
-          a.curStreak = Math.max(1, a.curStreak+1);
+          a.curStreak = Math.max(1, a.curStreak + 1);
           a.bestStreak = Math.max(a.bestStreak, a.curStreak);
           if (oppTeamAvgElo - myTeamAvgElo >= 100) a.upsets++;
         } else {
@@ -355,34 +350,53 @@ export function computeSuperlatives(matches: MatchDTO[]): Superlatives {
       }
     };
 
-    applyResult(A, sTeam1 === 1, s1 - s2, rB, rA);
-    applyResult(B, sTeam2 === 1, s2 - s1, rA, rB);
+    applyResult(A, t1Won, s1 - s2, rB, rA);
+    applyResult(B, t2Won, s2 - s1, rA, rB);
 
-    // head-to-head: award wins to individuals vs each opponent pair
-    const credit = (winners: string[], losers: string[], wTeam: 0|1|2) => {
+    // H2H (individual vs individual across teams)
+    const credit = (winners: string[], losers: string[], winnerTeam: 1 | 2) => {
       for (const a of winners) for (const b of losers) {
-        const [id1,id2] = [a,b].sort();
-        const key = `${id1}|${id2}`;
-        if (!h2h[key]) h2h[key] = { a: id1, b: id2, winsA: 0, winsB: 0, total: 0 };
-        if (wTeam === 1) {
-          if (a === id1) h2h[key].winsA++; else h2h[key].winsB++;
-        } else if (wTeam === 2) {
-          if (a === id1) h2h[key].winsA++; else h2h[key].winsB++;
+        const key = pairKey(a, b);
+        if (!h2h[key]) {
+          const [id1, id2] = a < b ? [a, b] : [b, a];
+          h2h[key] = { a: id1, b: id2, winsA: 0, winsB: 0, total: 0 };
         }
-        h2h[key].total++;
+        const rec = h2h[key];
+        if (winnerTeam === 1) {
+          if (a === rec.a) rec.winsA++; else rec.winsB++;
+        } else {
+          if (a === rec.a) rec.winsA++; else rec.winsB++;
+        }
+        rec.total++;
       }
     };
-    if (sTeam1 === 1) credit(A,B,1); else if (sTeam2 === 1) credit(B,A,2); else credit(A,B,1);
+    if (t1Won) credit(A, B, 1);
+    else if (t2Won) credit(B, A, 2);
+    else credit(A, B, 1); // tie → arbitrary
+
+    // Dynamic Duo (same-team)
+    const addDuo = (ids: string[], won: boolean) => {
+      const [x, y] = ids;
+      if (!x || !y || isNA(x) || isNA(y)) return;
+      const key = duoKey(x, y);
+      if (!duos[key]) {
+        const [a, b] = x < y ? [x, y] : [y, x];
+        duos[key] = { a, b, wins: 0, games: 0 };
+      }
+      duos[key].games += 1;
+      if (won) duos[key].wins += 1;
+    };
+    addDuo(A, t1Won);
+    addDuo(B, t2Won);
 
     // Elo update
-    const e1 = exp(rA, rB);
-    const e2 = 1 - e1;
-    const d1 = K * (sTeam1 - e1);
-    const d2 = K * (sTeam2 - e2);
-    agg[A[0]].elo! += d1/2; agg[A[1]].elo! += d1/2;
-    agg[B[0]].elo! += d2/2; agg[B[1]].elo! += d2/2;
+    const e1 = exp(rA, rB), e2 = 1 - e1;
+    const d1 = K * ((t1Won ? 1 : t2Won ? 0 : 0.5) - e1);
+    const d2 = K * ((t2Won ? 1 : t1Won ? 0 : 0.5) - e2);
+    agg[A[0]].elo += d1/2; agg[A[1]].elo += d1/2;
+    agg[B[0]].elo += d2/2; agg[B[1]].elo += d2/2;
 
-    // KOTC: snapshot table after this match and credit leaders
+    // KOTC snapshot (after this match)
     const table = Object.entries(agg).map(([id, a]) => {
       const games = a.wins + a.losses || 1;
       return {
@@ -390,7 +404,7 @@ export function computeSuperlatives(matches: MatchDTO[]): Superlatives {
         name: nameOf[id] || id,
         wins: a.wins,
         winPct: a.wins / games,
-        pointDiff: a.pointDiffs.reduce((s,x)=>s+x,0), // PF-PA summed each match
+        pointDiff: a.pointDiffs.reduce((s,x)=>s+x,0),
       };
     }).sort(compareRows);
 
@@ -414,7 +428,7 @@ export function computeSuperlatives(matches: MatchDTO[]): Superlatives {
     return Math.sqrt(v);
   };
 
-  // compute winners
+  // compute per-player winners
   let mostClutch, dominator, ironman, partnerHopper, mostConsistent, longestWinStreak, upsetKing;
 
   for (const id in agg) {
@@ -458,13 +472,11 @@ export function computeSuperlatives(matches: MatchDTO[]): Superlatives {
   for (const key in h2h) {
     const r = h2h[key];
     if (r.total < 6) continue;
-    const diff = Math.abs(r.winsA - r.winsB);
-    const closeness = diff / r.total; // lower is better
-    if (
-      !mostHeatedRivalry ||
-      closeness < Math.abs(mostHeatedRivalry.winsA - mostHeatedRivalry.winsB) / mostHeatedRivalry.total ||
-      (closeness === Math.abs(mostHeatedRivalry.winsA - mostHeatedRivalry.winsB) / mostHeatedRivalry.total && r.total > mostHeatedRivalry.total)
-    ) {
+    const closeness = Math.abs(r.winsA - r.winsB) / r.total; // lower is better
+    const current = mostHeatedRivalry
+      ? Math.abs(mostHeatedRivalry.winsA - mostHeatedRivalry.winsB) / mostHeatedRivalry.total
+      : Infinity;
+    if (!mostHeatedRivalry || closeness < current || (closeness === current && r.total > mostHeatedRivalry.total)) {
       mostHeatedRivalry = {
         aId: r.a, aName: nameOf[r.a] || r.a,
         bId: r.b, bName: nameOf[r.b] || r.b,
@@ -473,18 +485,17 @@ export function computeSuperlatives(matches: MatchDTO[]): Superlatives {
     }
   }
 
-  // KOTC: choose the king (break ties by final table)
+  // KOTC winner
   let kingOfTheCourt: Superlatives["kingOfTheCourt"];
   const fcEntries = Object.entries(firstCounts);
   if (fcEntries.length) {
-    const max = Math.max(...fcEntries.map(([_, c]) => c));
-    const tiedIds = fcEntries.filter(([_, c]) => c === max).map(([id]) => id);
+    const max = Math.max(...fcEntries.map(([, c]) => c));
+    const tiedIds = fcEntries.filter(([, c]) => c === max).map(([id]) => id);
 
     if (tiedIds.length === 1) {
       const id = tiedIds[0];
       kingOfTheCourt = { playerId: id, name: nameOf[id] || id, matchesAtFirst: firstCounts[id] };
     } else {
-      // build final table to break ties deterministically
       const finalRows = Object.keys(agg).map(id => {
         const a = agg[id];
         const games = a.wins + a.losses || 1;
@@ -496,9 +507,30 @@ export function computeSuperlatives(matches: MatchDTO[]): Superlatives {
           pointDiff: a.pointDiffs.reduce((s,x)=>s+x,0),
         };
       }).sort(compareRows);
-
       const winner = finalRows.find(r => tiedIds.includes(r.id))!;
       kingOfTheCourt = { playerId: winner.id, name: winner.name, matchesAtFirst: firstCounts[winner.id] };
+    }
+  }
+
+  // Highest Dynamic Duo
+  let highestDynamicDuo: Superlatives["highestDynamicDuo"];
+  for (const key in duos) {
+    const d = duos[key];
+    const winPct = d.games > 0 ? d.wins / d.games : 0;
+    const candidate = {
+      aId: d.a, aName: nameOf[d.a] || d.a,
+      bId: d.b, bName: nameOf[d.b] || d.b,
+      wins: d.wins,
+      games: d.games,
+      winPct,
+    };
+    if (
+      !highestDynamicDuo ||
+      candidate.wins > highestDynamicDuo.wins ||
+      (candidate.wins === highestDynamicDuo.wins && candidate.winPct > highestDynamicDuo.winPct) ||
+      (candidate.wins === highestDynamicDuo.wins && candidate.winPct === highestDynamicDuo.winPct && candidate.games > highestDynamicDuo.games)
+    ) {
+      highestDynamicDuo = candidate;
     }
   }
 
@@ -511,6 +543,7 @@ export function computeSuperlatives(matches: MatchDTO[]): Superlatives {
     ironman,
     partnerHopper,
     mostConsistent,
-    kingOfTheCourt, // <-- included with the rest
+    kingOfTheCourt,
+    highestDynamicDuo,
   };
 }

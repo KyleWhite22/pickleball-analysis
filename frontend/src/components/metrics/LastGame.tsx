@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { getLeagueMetrics, type MatchDTO } from "../../lib/api";
+import { useMetrics } from "./MetricsProvider";
 
 export default function LastGame({ leagueId }: { leagueId: string | null }) {
   const [recent, setRecent] = useState<MatchDTO[]>([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(false);
-
+const { version } = useMetrics();
   const visible = recent.slice(index, index + 3);
 
   // reset when league changes
@@ -16,12 +17,13 @@ export default function LastGame({ leagueId }: { leagueId: string | null }) {
 
   // initial load (from /metrics)
   useEffect(() => {
-    if (!leagueId || recent.length) return;
+    if (!leagueId) return;
     (async () => {
       setLoading(true);
       try {
         const { recentMatches } = await getLeagueMetrics(leagueId);
         setRecent(recentMatches);
+        setIndex(0); // jump to newest after a refresh
       } catch (e) {
         console.warn("[LastGame] metrics load failed:", e);
         setRecent([]);
@@ -29,7 +31,7 @@ export default function LastGame({ leagueId }: { leagueId: string | null }) {
         setLoading(false);
       }
     })();
-  }, [leagueId, recent.length]);
+  }, [leagueId, version]); // <-- refetch after submit/undo
 
   function goOlder() {
     // move down (toward older)

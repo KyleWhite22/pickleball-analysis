@@ -100,6 +100,7 @@ exports.handler = async (event) => {
       ScanIndexForward: false,
       Limit: limit,
       ExclusiveStartKey: cursor,
+       ConsistentRead: true,  
     }));
 
     const matches = (q.Items || []).map(unmarshall).map(toDTO);

@@ -8,7 +8,6 @@ import {
   computeCompositeScores,
   computeGrades,
 } from "../../hooks/stats";
-
 type MaybeExtendedStanding = {
   playerId: string;
   name: string;
@@ -21,7 +20,7 @@ type MaybeExtendedStanding = {
 };
 
 export default function PlayerMetrics({ leagueId }: { leagueId: string | null }) {
-  const { standings, loading } = useMetrics();
+const { standings, loading, version } = useMetrics();
 
   // ---- partners & elo computed from /metrics.recentMatches ----
   const [partners, setPartners] = useState<BestPartnersMap>({});
@@ -45,7 +44,7 @@ export default function PlayerMetrics({ leagueId }: { leagueId: string | null })
       }
     })();
     return () => { alive = false; };
-  }, [leagueId]);
+ }, [leagueId, version]);
 
   // ---- ordering (best to worst) ----
   const data: MaybeExtendedStanding[] = Array.isArray(standings) ? (standings as any) : [];

@@ -12,6 +12,7 @@ type MetricsContextType = {
   standings: Standing[] | null;
   loading: boolean;
   refresh: () => Promise<void>;
+  version: number; // increments whenever refresh() completes
 };
 
 const MetricsCtx = createContext<MetricsContextType | null>(null);
@@ -25,7 +26,7 @@ export function MetricsProvider({
 }) {
   const [standings, setStandings] = useState<Standing[] | null>(null);
   const [loading, setLoading] = useState(false);
-
+  const [version, setVersion] = useState(0);
   const fetchOnce = useCallback(async () => {
     if (!leagueId) {
       setStandings(null);
@@ -43,15 +44,17 @@ export function MetricsProvider({
   // fetch when league changes
   useEffect(() => {
     void fetchOnce();
+    // bump a ticker so other widgets know to refetch their own data
+    setVersion(v => v + 1);
   }, [fetchOnce]);
 
   const refresh = useCallback(async () => {
     await fetchOnce();
+    setVersion(v => v + 1);
   }, [fetchOnce]);
 
   return (
-    <MetricsCtx.Provider value={{ standings, loading, refresh }}>
-      {children}
+    <MetricsCtx.Provider value={{ standings, loading, refresh, version }}>      {children}
     </MetricsCtx.Provider>
   );
 }
