@@ -65,7 +65,7 @@ export default function AppShell() {
       {/* Header */}
       <header className="sticky top-0 z-40">
         <div className="mx-auto max-w-6xl px-4 pt-4">
-          <div className="rounded-2xl border border-white/10 bg-black/30 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,.35)]">
+          <div>
             <div className="flex items-center justify-between px-5 py-3">
               {/* Brand (logo + wordmark) */}
               <Link to="/" className="flex items-center gap-3">
@@ -118,7 +118,7 @@ export default function AppShell() {
       </header>
 
       {/* Main content */}
-      <main className="relative mx-auto max-w-6xl px-4 py-6 md:py-8">
+      <main className="relative mx-auto max-w-6xl px-4 pt-2 md:pt-4 pb-6 md:pb-8">
         <div >
           <Outlet />
         </div>
