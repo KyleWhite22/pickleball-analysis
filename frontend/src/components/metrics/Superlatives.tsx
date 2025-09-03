@@ -62,7 +62,7 @@ export default function Superlatives({ leagueId }: { leagueId: string | null }) 
             label="Most Heated Rivalry"
             value={
               data.mostHeatedRivalry
-                ? `${data.mostHeatedRivalry.aName} vs ${data.mostHeatedRivalry.bName} (${data.mostHeatedRivalry.winsA}–${data.mostHeatedRivalry.winsB}, ${data.mostHeatedRivalry.total} games)`
+                ? `${data.mostHeatedRivalry.aName} vs ${data.mostHeatedRivalry.bName} (${data.mostHeatedRivalry.winsA}–${data.mostHeatedRivalry.winsB})`
                 : "—"
             }
           />
