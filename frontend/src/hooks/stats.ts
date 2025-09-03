@@ -154,3 +154,95 @@ export function computeElo(
 
   return rating;
 }
+// --- Grading helpers ---------------------------------------------------------
+
+export type GradeLetter = "S" | "A" | "B" | "C" | "D" | "F";
+
+/** Map percentile (0..100) to letter grade. */
+export function gradeFromPercentile(p: number): GradeLetter {
+  if (p >= 90) return "S";
+  if (p >= 75) return "A";
+  if (p >= 60) return "B";
+  if (p >= 40) return "C";
+  if (p >= 20) return "D";
+  return "F";
+}
+
+/** Safe z-score (if stdev=0, return 0). */
+function z(x: number, mean: number, sd: number) {
+  return sd > 0 ? (x - mean) / sd : 0;
+}
+
+export type StandLike = {
+  playerId: string;
+  winPct: number;     // 0..1
+  pointsFor: number;
+  pointsAgainst: number;
+  wins: number;
+  losses: number;
+};
+
+export type EloMap = Record<string, number>;
+
+/**
+ * Compute a composite score per player (z-scored components):
+ *   - Win% (weight 0.6)
+ *   - Point Diff per Game (weight 0.25)
+ *   - Elo (weight 0.15) - optional
+ *
+ * Returns { playerId: compositeScore }
+ */
+export function computeCompositeScores(
+  standings: StandLike[],
+  elo: EloMap = {}
+): Record<string, number> {
+  const n = standings.length;
+  if (!n) return {};
+
+  const games = (s: StandLike) => s.wins + s.losses || 1;
+  const diffPerGame = (s: StandLike) => (s.pointsFor - s.pointsAgainst) / games(s);
+
+  const winPcts = standings.map(s => s.winPct);
+  const diffs   = standings.map(s => diffPerGame(s));
+  const elosArr = standings.map(s => (elo[s.playerId] ?? 1000));
+
+  const mean = (arr: number[]) => arr.reduce((a,b)=>a+b,0) / arr.length;
+  const sd   = (arr: number[], m: number) => Math.sqrt(arr.reduce((a,b)=>a + (b-m)*(b-m),0) / arr.length);
+
+  const mWP = mean(winPcts), sWP = sd(winPcts, mWP);
+  const mDF = mean(diffs),   sDF = sd(diffs,   mDF);
+  const mE  = mean(elosArr), sE  = sd(elosArr, mE);
+
+  const weights = { wp: 0.60, df: 0.25, e: 0.15 };
+
+  const out: Record<string, number> = {};
+  for (const s of standings) {
+    const zWP = z(s.winPct, mWP, sWP);
+    const zDF = z(diffPerGame(s), mDF, sDF);
+    const zE  = z(elo[s.playerId] ?? 1000, mE, sE);
+    out[s.playerId] = weights.wp * zWP + weights.df * zDF + weights.e * zE;
+  }
+  return out;
+}
+
+/**
+ * Turn composite scores into percentile → letter grade.
+ * Returns { playerId: { percentile: 0..100, grade: "S"|"A"|... } }
+ */
+export function computeGrades(
+  composite: Record<string, number>
+): Record<string, { percentile: number; grade: GradeLetter }> {
+  const entries = Object.entries(composite);
+  if (!entries.length) return {};
+
+  const sorted = [...entries].sort((a,b) => a[1] - b[1]); // low → high
+  const out: Record<string, { percentile: number; grade: GradeLetter }> = {};
+
+  sorted.forEach(([pid], i) => {
+    const pct = (i / (sorted.length - 1 || 1)) * 100; // 0..100
+    const grade = gradeFromPercentile(pct);
+    out[pid] = { percentile: Math.round(pct), grade };
+  });
+
+  return out;
+}

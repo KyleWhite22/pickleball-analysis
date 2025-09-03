@@ -40,14 +40,13 @@ export default function MetricsSection({ leagueId }: Props) {
         {/* Left column: standings + chart */}
         <div className="space-y-6">
           <Standings />
-          <StreakDivergingChart />
+          <PlayerMetrics leagueId={leagueId} />
         </div>
 
         {/* Right column: last game + player metrics */}
         <div className="space-y-6">
           <LastGame leagueId={leagueId} />
-          <PlayerMetrics leagueId={leagueId} />
-        </div>
+<StreakDivergingChart />        </div>
       </div>
     </section>
   );
