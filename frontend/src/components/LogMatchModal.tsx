@@ -111,106 +111,153 @@ export default function LogMatchModal({
             ))}
           </datalist>
 
-<form onSubmit={handleSubmit} className="space-y-3">
-  {/* --- Bold White Line Pickleball Court --- */}
-  <div className="mx-auto w-full max-w-xl">
-    <div className="relative aspect-[20/9] rounded bg-black/0 border-4 border-white overflow-hidden">
-      {/* Net (center line) */}
-      <div className="absolute left-0 right-67 top-1/2 -translate-y-1/2 border-t-4 border-white" />
-      <div className="absolute left-67 right-0 top-1/2 -translate-y-1/2 border-t-4 border-white" />
+          <form onSubmit={handleSubmit} className="space-y-3">
+            {/* --- Bold White Line Pickleball Court --- */}
 
-      {/* Kitchen lines (left/right of net) */}
-      <div className="absolute left-[42%] top-0 bottom-0 border-r-4 border-white" />
-      <div className="absolute left-[58%] top-0 bottom-0 border-l-4 border-white" />
-      <div className="absolute left-[50%] top-0 bottom-0 border-l-4 border-white" />
+            {/* --- Bold White Line Pickleball Court (mobile-crisp) --- */}
+            <div className="mx-auto w-full max-w-xl">
+       {/* Court: outer container keeps your rounded border */}
+<div className="relative aspect-[20/9] rounded bg-black/0 border-4 border-white overflow-hidden">
+  {/* 1) LINES: span the full court */}
 
+{/* 1) LINES: kitchens + segmented horizontal line at mid-court */}
+<div
+  className="absolute inset-0 pointer-events-none"
+  style={{
+    backgroundImage: `
+      /* vertical kitchen @42% */
+      linear-gradient(to bottom, white, white),
+      /* vertical kitchen @58% */
+      linear-gradient(to bottom, white, white),
+      /* horizontal service line LEFT (0% → 42%) */
+      linear-gradient(to right, white, white),
+      /* horizontal service line RIGHT (58% → 100%) */
+      linear-gradient(to right, white, white),
+      /* vertical dotted net @50% */
+      repeating-linear-gradient(
+        to bottom,
+        white 0 6px,
+        transparent 6px 12px
+      )
+    `,
+    backgroundRepeat: 'no-repeat',
+    backgroundSize: `
+      4px 100%,   /* kitchen 42% full height */
+      4px 100%,   /* kitchen 58% full height */
+      42% 4px,    /* service line left */
+      42% 4px,    /* service line right */
+      4px 100%    /* dotted net full height */
+    `,
+    backgroundPosition: `
+      42% 0,      /* kitchen left */
+      58% 0,      /* kitchen right */
+      left 50%,   /* service line left at 50% y */
+      right 50%,  /* service line right at 50% y */
+      50% 0       /* dotted net centered vertically */
+    `,
+    transform: 'translateZ(0)',
+  }}
+/>
 
-      {/* Team A (left side) */}
-      <div className="absolute left-4 right-[58%] top-4 bottom-4 flex flex-col gap-3">
-        <input
-          ref={firstInputRef}
-          list={datalistId}
-          value={a1}
-          onChange={(e) => setA1(e.target.value)}
-          placeholder="Team A — P1"
-          className="flex-1 rounded bg-black/50 px-2 py-1 text-sm text-center text-white outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-mint/40"
-        />
-        <input
-          list={datalistId}
-          value={a2}
-          onChange={(e) => setA2(e.target.value)}
-          placeholder="Team A — P2"
-          className="flex-1 rounded bg-black/50 px-2 py-1 text-sm text-center text-white outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-mint/40"
-        />
-      </div>
-
-      {/* Team B (right side) */}
-      <div className="absolute left-[58%] right-4 top-4 bottom-4 flex flex-col gap-3">
-        <input
-          list={datalistId}
-          value={b1}
-          onChange={(e) => setB1(e.target.value)}
-          placeholder="Team B — P1"
-          className="flex-1 rounded bg-black/50 px-2 py-1 text-sm text-center text-white outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-mint/40"
-        />
-        <input
-          list={datalistId}
-          value={b2}
-          onChange={(e) => setB2(e.target.value)}
-          placeholder="Team B — P2"
-          className="flex-1 rounded bg-black/50 px-2 py-1 text-sm text-center text-white outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-mint/40"
-        />
-      </div>
+  {/* 2) INPUTS OVERLAY: padded, so lines still run edge-to-edge */}
+  <div className="absolute inset-0 p-4">
+    {/* Left–Top (Team A — P1): 0%→42% x, 0%→50% y */}
+    <div className="absolute flex items-center justify-center"
+         style={{ left:'0%', right:'58%', top:'0%', bottom:'50%' }}>
+      <input
+        ref={firstInputRef}
+        list={datalistId}
+        value={a1}
+        onChange={(e) => setA1(e.target.value)}
+        placeholder="Team A — P1"
+        className="w-11/12 max-w-[14rem] rounded bg-black/50 px-3 py-1.5 text-sm text-center text-white outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-mint/40"
+      />
     </div>
 
-   
-    {/* SCORE — below the court */}
-    <div className="mt-3 flex justify-center items-center gap-2 bg-black/70 px-3 py-2 rounded">
+    {/* Left–Bottom (Team A — P2): 0%→42% x, 50%→100% y */}
+    <div className="absolute flex items-center justify-center"
+         style={{ left:'0%', right:'58%', top:'50%', bottom:'0%' }}>
       <input
-        type="number"
-        inputMode="numeric"
-        value={sa}
-        onChange={(e) => setSa(e.target.value === '' ? '' : Number(e.target.value))}
-        placeholder="A"
-        aria-label="Score A"
-        className="w-12 rounded bg-black/90 text-center text-sm text-white outline-none focus:ring-2 focus:ring-mint/40"
+        list={datalistId}
+        value={a2}
+        onChange={(e) => setA2(e.target.value)}
+        placeholder="Team A — P2"
+        className="w-11/12 max-w-[14rem] rounded bg-black/50 px-3 py-1.5 text-sm text-center text-white outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-mint/40"
       />
-      <span className="text-white font-bold">–</span>
+    </div>
+
+    {/* Right–Top (Team B — P1): 58%→100% x, 0%→50% y */}
+    <div className="absolute flex items-center justify-center"
+         style={{ left:'58%', right:'0%', top:'0%', bottom:'50%' }}>
       <input
-        type="number"
-        inputMode="numeric"
-        value={sb}
-        onChange={(e) => setSb(e.target.value === '' ? '' : Number(e.target.value))}
-        placeholder="B"
-        aria-label="Score B"
-        className="w-12 rounded bg-black/90 text-center text-sm text-white outline-none focus:ring-2 focus:ring-mint/40"
+        list={datalistId}
+        value={b1}
+        onChange={(e) => setB1(e.target.value)}
+        placeholder="Team B — P1"
+        className="w-11/12 max-w-[14rem] rounded bg-black/50 px-3 py-1.5 text-sm text-center text-white outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-mint/40"
+      />
+    </div>
+
+    {/* Right–Bottom (Team B — P2): 58%→100% x, 50%→100% y */}
+    <div className="absolute flex items-center justify-center"
+         style={{ left:'58%', right:'0%', top:'50%', bottom:'0%' }}>
+      <input
+        list={datalistId}
+        value={b2}
+        onChange={(e) => setB2(e.target.value)}
+        placeholder="Team B — P2"
+        className="w-11/12 max-w-[14rem] rounded bg-black/50 px-3 py-1.5 text-sm text-center text-white outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-mint/40"
       />
     </div>
   </div>
+</div>
 
 
-  {/* Buttons below court */}
-  <div className="flex flex-wrap items-center gap-3 pt-1">
-    <button
-      type="submit"
-      disabled={!valid || submitting}
-      className="inline-flex items-center justify-center rounded-lg bg-mint px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95 disabled:opacity-50"
-    >
-      {submitting ? "Saving…" : "Submit Match"}
-    </button>
+              {/* SCORE — below the court (white boxes) */}
+              <div className="mt-3 flex justify-center items-center gap-3">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={sa}
+                  onChange={(e) => setSa(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="A"
+                  aria-label="Score A"
+                  className="w-14 rounded-lg bg-white text-black text-center text-lg font-bold outline-none focus:ring-2 focus:ring-mint/40"
+                />
+                <span className="text-white font-bold text-lg">–</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={sb}
+                  onChange={(e) => setSb(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="B"
+                  aria-label="Score B"
+                  className="w-14 rounded-lg bg-white text-black text-center text-lg font-bold outline-none focus:ring-2 focus:ring-mint/40"
+                />
+              </div>
+            </div>
+            {/* Buttons below court */}
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <button
+                type="submit"
+                disabled={!valid || submitting}
+                className="inline-flex items-center justify-center rounded-lg bg-mint px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95 disabled:opacity-50"
+              >
+                {submitting ? "Saving…" : "Submit Match"}
+              </button>
 
-    {onUndo && (
-      <button
-        type="button"
-        disabled={undoing}
-        onClick={onUndo}
-        className="inline-flex items-center justify-center rounded-lg bg-rose-500/90 px-3 py-2 text-sm font-semibold text-white transition hover:brightness-95 disabled:opacity-50"
-      >
-        {undoing ? "Undoing…" : "Undo last match"}
-      </button>
-    )}
-  </div>
-</form>
+              {onUndo && (
+                <button
+                  type="button"
+                  disabled={undoing}
+                  onClick={onUndo}
+                  className="inline-flex items-center justify-center rounded-lg bg-rose-500/90 px-3 py-2 text-sm font-semibold text-white transition hover:brightness-95 disabled:opacity-50"
+                >
+                  {undoing ? "Undoing…" : "Undo last match"}
+                </button>
+              )}
+            </div>
+          </form>
 
 
         </div>
