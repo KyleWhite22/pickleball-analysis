@@ -22,3 +22,8 @@
 /* App baseline */
 html, body, #root { height: 100%; }
 body { @apply bg-ink-900 text-white font-sans antialiased; }
+input,
+textarea,
+select {
+  font-size: 16px; /* prevents iOS Safari zoom */
+}
