@@ -212,16 +212,16 @@ export default function PlayerMetrics({ leagueId }: { leagueId: string | null })
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <StatBox label="Record" value={`${current.wins}-${current.losses}`} />
-            <StatBox label="Win %" value={`${(current.winPct * 100).toFixed(0)}%`} />
-            {/* Combined PF/PA + Diff */}
-            <StatBox label="PF/PA (Diff)" value={`${current.pointsFor}/${current.pointsAgainst} (${diffSigned})`} />
             <StatBox
               label="ELO"
               value={
                 elo[current.playerId] != null ? Math.round(elo[current.playerId]).toString() : "—"
               }
             />
+            <StatBox label="Record" value={`${current.wins}-${current.losses}`} />
+            <StatBox label="Win %" value={`${(current.winPct * 100).toFixed(0)}%`} />
+            {/* Combined PF/PA + Diff */}
+            <StatBox label="PF/PA (Diff)" value={`${current.pointsFor}/${current.pointsAgainst} (${diffSigned})`} />
             {/* New: Longest Win Streak */}
             <StatBox label="Longest Win Streak" value={longest ? `${longest}` : "—"} />
             <StatBox
