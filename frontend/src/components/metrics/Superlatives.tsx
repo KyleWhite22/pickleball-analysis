@@ -76,19 +76,17 @@ export default function Superlatives({ leagueId }: { leagueId: string | null }) 
           <Item
             label="Partner Hopper"
             value={data.partnerHopper ? `${data.partnerHopper.name} (${data.partnerHopper.partners} partners)` : "—"}
-          />
-         
+          />         
         </ul>
       )}
     </div>
   );
 }
-
 function Item({ label, value }: { label: string; value: string }) {
   return (
-    <li className="flex items-baseline gap-2">
-      <span className="min-w-[11rem] text-zinc-400">{label}:</span>
-      <span className="font-medium text-white truncate">{value}</span>
+    <li className="flex flex-wrap justify-between gap-y-1">
+      <span className="text-zinc-400 whitespace-nowrap">{label}:</span>
+      <span className="font-medium text-white text-right">{value}</span>
     </li>
   );
 }
