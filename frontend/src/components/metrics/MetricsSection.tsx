@@ -5,6 +5,7 @@ import LastGame from "./LastGame";
 import PlayerMetrics from "./PlayerMetrics";
 import Superlatives from "./Superlatives";
 import WinSharePie from "./WinSharePie";
+import PointDiffBars from "./PointDiffBars";
 type Props = { leagueId: string | null };
 
 /*function KPIRow() {
@@ -45,6 +46,7 @@ export default function MetricsSection({ leagueId }: Props) {
           <StreakDivergingChart />
           {/* key forces a fresh mount when league changes */}
           <Superlatives key={leagueId ?? "none"} leagueId={leagueId} />
+         <PointDiffBars />   {/* ✅ new chart here */}
         </div>
 
         <div className="space-y-6">
