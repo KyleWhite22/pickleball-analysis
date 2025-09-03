@@ -66,7 +66,7 @@ export default function AppShell() {
       <header className="sticky top-0 z-40">
         <div className="mx-auto max-w-6xl px-4 pt-4">
           <div>
-            <div className="flex items-center justify-between px-5 py-3">
+            <div className="flex items-center justify-between py-3">
               {/* Brand (logo + wordmark) */}
               <Link to="/" className="flex items-center gap-3">
                 {/* Logo container: larger, ring, subtle glow */}
