@@ -46,7 +46,7 @@ export default function MetricsSection({ leagueId }: Props) {
         {/* Right column: last game + player metrics */}
         <div className="space-y-6">
           <LastGame leagueId={leagueId} />
-          <PlayerMetrics />
+          <PlayerMetrics leagueId={leagueId} />
         </div>
       </div>
     </section>

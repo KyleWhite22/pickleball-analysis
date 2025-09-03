@@ -123,7 +123,7 @@ export type MatchDTO = {
   matchId: string;
   createdAt: string;
   teams: [
-    { players: { id: string; name: string }[] }, // two players
+    { players: { id: string; name: string }[] },
     { players: { id: string; name: string }[] }
   ];
   score: { team1: number; team2: number };
