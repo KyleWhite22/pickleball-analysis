@@ -214,7 +214,40 @@ export default function LogMatchModal({
 
 
               {/* SCORE — below the court (white boxes) */}
-             
+             <div className="mt-5 flex justify-center">
+  <div className="flex items-center gap-4 rounded-2xl  px-6  shadow-lg">
+    {/* Team A score */}
+    <div className="flex flex-col items-center">
+      <span className="mb-1 text-xs uppercase tracking-wide text-zinc-400">Team A</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        value={sa}
+        onChange={(e) => setSa(e.target.value === '' ? '' : Number(e.target.value))}
+        placeholder="0"
+        aria-label="Score A"
+        className="w-16 h-16 rounded-lg border border-zinc-400 bg-black text-white text-center text-3xl font-bold outline-none focus:ring-2 focus:ring-mint/40 focus:border-mint"
+      />
+    </div>
+
+    {/* Separator */}
+    <span className="text-zinc-300 font-bold text-2xl">–</span>
+
+    {/* Team B score */}
+    <div className="flex flex-col items-center">
+      <span className="mb-1 text-xs uppercase tracking-wide text-zinc-400">Team B</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        value={sb}
+        onChange={(e) => setSb(e.target.value === '' ? '' : Number(e.target.value))}
+        placeholder="0"
+        aria-label="Score B"
+        className="w-16 h-16 rounded-lg border border-zinc-400 bg-black text-white text-center text-3xl font-bold outline-none focus:ring-2 focus:ring-mint/40 focus:border-mint"
+      />
+    </div>
+  </div>
+</div>
             </div>
             {/* Buttons below court */}
             <div className="flex flex-wrap items-center gap-3 pt-1">
