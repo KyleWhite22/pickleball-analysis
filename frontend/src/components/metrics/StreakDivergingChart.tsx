@@ -52,7 +52,7 @@ const basePadding = 40;                       // top+bottom room for axes/labels
 const chartHeight = Math.max(220, basePadding + data.length * rowHeight);
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <h2 className="mb-2 text-lg font-semibold">Streaks</h2>
+      <h2 className="mb-2 text-lg font-semibold">Streak Chart</h2>
 
 <div style={{ height: chartHeight }}>
 

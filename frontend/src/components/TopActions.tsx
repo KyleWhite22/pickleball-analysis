@@ -172,47 +172,48 @@ export default function TopActions({
             )}
           </div>
         </div>
+<div className="w-full md:w-auto">
+  <div className="flex w-full flex-row flex-wrap gap-2 items-stretch justify-end">
+    {/* Grouped neutral buttons */}
+    <div className="flex w-full sm:w-auto flex-row overflow-hidden rounded-lg border border-white/10">
+      <button
+        onClick={() => setChooseOpen(true)}
+        className="flex-1 min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+      >
+        Select league
+      </button>
+
+      {/* vertical divider */}
+      <div className="w-px bg-white/50" />
+
+      <button
+        onClick={async () => {
+          if (!signedIn) {
+            await signInWithRedirect();
+            return;
+          }
+          setCreateOpen(true);
+        }}
+        className="flex-1 min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+      >
+        Create league
+      </button>
+    </div>
+
+    {/* Log Match spans width if wrapped */}
+    {ownsSelected && selectedLeagueId && (
+      <button
+        onClick={() => setLogOpen(true)}
+        className="w-full sm:w-auto rounded-lg bg-mint px-4 py-2 text-sm font-semibold text-black hover:brightness-95"
+      >
+        Log a Match
+      </button>
+    )}
+  </div>
+</div>
 
         {/* Actions */}
-        <div className="w-full md:w-auto">
-          <div className="flex w-full flex-row flex-wrap gap-2 items-center justify-end">
-            {/* Grouped neutral buttons (always side by side) */}
-            <div className="flex w-full sm:w-auto flex-row overflow-hidden rounded-lg border border-white/10">
-              <button
-                onClick={() => setChooseOpen(true)}
-                className="flex-1 min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
-              >
-                Select league
-              </button>
-
-              {/* vertical divider (since they’re always side-by-side) */}
-              <div className="w-px bg-white/50" />
-
-              <button
-                onClick={async () => {
-                  if (!signedIn) {
-                    await signInWithRedirect();
-                    return;
-                  }
-                  setCreateOpen(true);
-                }}
-                className="flex-1 min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
-              >
-                Create league
-              </button>
-            </div>
-
-            {/* Log Match only if you own the league */}
-            {ownsSelected && selectedLeagueId && (
-              <button
-                onClick={() => setLogOpen(true)}
-                className="rounded-lg bg-mint px-4 py-2 text-sm font-semibold text-black hover:brightness-95"
-              >
-                Log a Match
-              </button>
-            )}
-          </div>
-        </div>
+      
       </div>
 
       {/* divider */}
