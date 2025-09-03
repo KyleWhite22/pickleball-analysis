@@ -4,7 +4,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  Tooltip,
   Legend,
 } from "recharts";
 import type { PieLabelRenderProps } from "recharts";
@@ -137,14 +136,7 @@ const label = useCallback((props: PieLabelRenderProps) => {
                   <Cell key={`cell-${i}`} fill={colors[i]} />
                 ))}
               </Pie>
-              <Tooltip
-                formatter={(value: any, _n, props: any) => {
-                  const wins = Number(value) || 0;
-                  const pct = props?.payload?.percent ? (props.payload.percent * 100).toFixed(1) : "0.0";
-                  return [`${wins} wins (${pct}%)`, "Win Share"];
-                }}
-                labelFormatter={(label: string) => label}
-              />
+             
               <Legend
                 verticalAlign="bottom"
                 height={36}
