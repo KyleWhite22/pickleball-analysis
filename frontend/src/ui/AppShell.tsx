@@ -119,7 +119,7 @@ export default function AppShell() {
 
       {/* Main content */}
       <main className="relative mx-auto max-w-6xl px-4 py-6 md:py-8">
-        <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,.35)] p-4 sm:p-6">
+        <div >
           <Outlet />
         </div>
       </main>
