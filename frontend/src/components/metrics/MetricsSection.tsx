@@ -4,6 +4,7 @@ import StreakDivergingChart from "./StreakDivergingChart";
 import LastGame from "./LastGame";
 import PlayerMetrics from "./PlayerMetrics";
 import Superlatives from "./Superlatives";
+import WinSharePie from "./WinSharePie";
 type Props = { leagueId: string | null };
 
 /*function KPIRow() {
@@ -49,6 +50,7 @@ export default function MetricsSection({ leagueId }: Props) {
         <div className="space-y-6">
           <LastGame leagueId={leagueId} />
           <PlayerMetrics leagueId={leagueId} />
+          <WinSharePie leagueId={leagueId} />
         </div>
       </div>
     </section>
