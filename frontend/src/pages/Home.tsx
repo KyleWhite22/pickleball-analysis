@@ -1,4 +1,3 @@
-// src/pages/Home.tsx
 import { useAuthEmail } from "../hooks/useAuthEmail";
 import { useLeagues } from "../hooks/useLeagues";
 import TopActions from "../components/TopActions";
@@ -9,28 +8,25 @@ import { useSelectedLeague } from "../state/SelectedLeagueProvider";
 export default function Home() {
   const { signedIn } = useAuthEmail();
 
-  // Keep useLeagues for lists, ownership, and refresh — but NOT for selectedLeagueId.
+  // still use useLeagues() for lists & ownership
   const {
     yourLeagues,
     publicLeagues,
-    ownsSelected,         // this may depend on provider’s selectedLeagueId internally
+    ownsSelected,
     addYourLeague,
     refreshLeagues,
-    // selectedLeagueId,   // ❌ stop using this from useLeagues
-    // setSelectedLeagueId // ❌ stop using this from useLeagues
   } = useLeagues(signedIn);
 
-  // ✅ single source of truth
+  // single source of truth for selected league
   const { selectedLeagueId, setSelectedLeagueId } = useSelectedLeague();
 
   return (
     <div className="relative min-h-[100dvh] text-white space-y-6">
-      <MetricsProvider leagueId={selectedLeagueId}>
+      <MetricsProvider key={selectedLeagueId || "none"} leagueId={selectedLeagueId}>
         <TopActions
           yourLeagues={yourLeagues}
           publicLeagues={publicLeagues}
-          selectedLeagueId={selectedLeagueId}        // ✅ from provider
-          onSelectLeague={setSelectedLeagueId}       // ✅ from provider
+          selectedLeagueId={selectedLeagueId}
           ownsSelected={ownsSelected}
           onLeagueCreated={(league) => { addYourLeague(league); }}
           onRefreshLeagues={refreshLeagues}

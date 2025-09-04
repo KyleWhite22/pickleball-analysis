@@ -27,6 +27,7 @@ export function MetricsProvider({
   const [standings, setStandings] = useState<Standing[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [version, setVersion] = useState(0);
+
   const fetchOnce = useCallback(async () => {
     if (!leagueId) {
       setStandings(null);
@@ -44,17 +45,17 @@ export function MetricsProvider({
   // fetch when league changes
   useEffect(() => {
     void fetchOnce();
-    // bump a ticker so other widgets know to refetch their own data
-    setVersion(v => v + 1);
+    setVersion((v) => v + 1);
   }, [fetchOnce]);
 
   const refresh = useCallback(async () => {
     await fetchOnce();
-    setVersion(v => v + 1);
+    setVersion((v) => v + 1);
   }, [fetchOnce]);
 
   return (
-    <MetricsCtx.Provider value={{ standings, loading, refresh, version }}>      {children}
+    <MetricsCtx.Provider value={{ standings, loading, refresh, version }}>
+      {children}
     </MetricsCtx.Provider>
   );
 }
@@ -65,7 +66,7 @@ export function useMetrics() {
   return ctx;
 }
 
-// Optional helper to avoid hard crash if used outside provider
+// Safe optional access (for components outside the provider, e.g. AppShell)
 export function useMetricsOptional() {
   return useContext(MetricsCtx);
 }

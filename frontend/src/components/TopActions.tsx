@@ -1,4 +1,3 @@
-// src/components/TopActions.tsx
 import { useMemo, useState } from "react";
 import type { League } from "../lib/api";
 import { createMatch, deleteLastMatch, listPlayers } from "../lib/api";
@@ -16,7 +15,6 @@ type Props = {
   yourLeagues: League[];
   publicLeagues: League[];
   selectedLeagueId: string | null;
-  onSelectLeague: (id: string) => void;
   ownsSelected: boolean;
   onLeagueCreated?: (league: League) => void;
   onRefreshLeagues?: () => Promise<void>;
@@ -32,13 +30,13 @@ export default function TopActions({
 }: Props) {
   const { signedIn } = useAuthEmail();
   const { refresh: refreshMetrics } = useMetrics();
+  const { setSelectedLeagueId } = useSelectedLeague();
 
   const [chooseOpen, setChooseOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [undoing, setUndoing] = useState(false);
-const { setSelectedLeagueId } = useSelectedLeague();
 
   // Track newly-created public leagues locally so labels are correct immediately
   const [knownPublicIds] = useState<Set<string>>(() => new Set());
@@ -48,47 +46,62 @@ const { setSelectedLeagueId } = useSelectedLeague();
     [yourLeagues]
   );
 
-  // Server-reported public IDs
   const publicIdsFromServer = useMemo(
     () => new Set(publicLeagues.map((l) => l.leagueId)),
     [publicLeagues]
   );
 
-  // Union set of all public IDs (server + locally-created)
   const allPublicIds = useMemo(() => {
     const s = new Set(publicIdsFromServer);
     for (const id of knownPublicIds) s.add(id);
     return s;
   }, [publicIdsFromServer, knownPublicIds]);
 
-  // Public list for chooser WITHOUT your own leagues (avoid duplicates)
   const publicForChooser = useMemo(
     () => publicLeagues.filter((l) => !ownedIds.has(l.leagueId)),
     [publicLeagues, ownedIds]
   );
 
-    const selected = useMemo(
+  const selected = useMemo(
     () =>
       selectedLeagueId
-        ? [...yourLeagues, ...publicLeagues].find((l) => l.leagueId === selectedLeagueId) || null
+        ? [...yourLeagues, ...publicLeagues].find(
+            (l) => l.leagueId === selectedLeagueId
+          ) ?? null
         : null,
     [selectedLeagueId, yourLeagues, publicLeagues]
   );
 
+  const cachedHint = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("selectedLeagueMeta");
+      if (!raw) return null;
+      const v = JSON.parse(raw) as {
+        id: string;
+        name?: string;
+        visibility?: "public" | "private";
+      };
+      return v && v.id === selectedLeagueId ? v : null;
+    } catch {
+      return null;
+    }
+  }, [selectedLeagueId]);
 
-  const isSelectedPublic = selected ? allPublicIds.has(selected.leagueId) : false;
- const nameLabel = selected
-    ? selected.name
-    : selectedLeagueId
-      ? "Loading league…"       // we know an ID, lists haven’t hydrated yet
-      : "No league selected";   // truly nothing selected
+  const displayName = selectedLeagueId
+    ? selected?.name ?? cachedHint?.name ?? "Loading…"
+    : "No league selected";
 
+  const isSelectedPublic = selected
+    ? selected.visibility === "public"
+    : cachedHint
+    ? cachedHint.visibility === "public"
+    : false;
 
   // Players for datalist in LogMatch modal
   const { players, loading: loadingPlayers, setPlayers } =
     usePlayers(selectedLeagueId);
 
-  // ---- Doubles submit: (a1, a2) vs (b1, b2) with scores s1, s2 ----
+  // ---- Doubles submit ----
   async function handleSubmit(
     a1: string,
     a2: string,
@@ -108,11 +121,9 @@ const { setSelectedLeagueId } = useSelectedLeague();
         ],
         score: { team1: s1, team2: s2 },
       };
-
-      // create the match (owner-only)
       await createMatch(selectedLeagueId, payload as any);
 
-      // refresh datalist — but DO NOT block on errors
+      // refresh datalist (non-blocking)
       try {
         const pl = await listPlayers(selectedLeagueId);
         setPlayers(pl);
@@ -120,7 +131,7 @@ const { setSelectedLeagueId } = useSelectedLeague();
         console.warn("listPlayers failed after submit (non-blocking):", e);
       }
     } finally {
-      await refreshMetrics(); // ALWAYS refresh tiles
+      await refreshMetrics();
       setSubmitting(false);
     }
   }
@@ -130,8 +141,6 @@ const { setSelectedLeagueId } = useSelectedLeague();
     setUndoing(true);
     try {
       await deleteLastMatch(selectedLeagueId);
-
-      // refresh datalist — non-blocking
       try {
         const pl = await listPlayers(selectedLeagueId);
         setPlayers(pl);
@@ -139,7 +148,7 @@ const { setSelectedLeagueId } = useSelectedLeague();
         console.warn("listPlayers failed after undo (non-blocking):", e);
       }
     } finally {
-      await refreshMetrics(); // ALWAYS refresh tiles
+      await refreshMetrics();
       setUndoing(false);
     }
   }
@@ -151,11 +160,11 @@ const { setSelectedLeagueId } = useSelectedLeague();
         <div className="min-w-0">
           <div className="text-xs text-zinc-400">Viewing league</div>
           <div className="mt-0.5 flex flex-wrap items-center gap-2">
-              <div className="truncate text-xl font-semibold md:text-2xl">
-              {nameLabel}
+            <div className="truncate text-xl font-semibold md:text-2xl">
+              {displayName}
             </div>
 
-            {selected && (
+            {selectedLeagueId && (
               <span
                 className={[
                   "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
@@ -183,7 +192,7 @@ const { setSelectedLeagueId } = useSelectedLeague();
         {/* Right side actions */}
         <div className="w-full md:w-auto">
           <div className="flex w-full flex-row flex-wrap items-stretch justify-end gap-2">
-            {/* Grouped neutral buttons (always side-by-side) */}
+            {/* Grouped neutral buttons */}
             <div className="flex w-full sm:w-auto flex-row overflow-hidden rounded-lg border border-white/10">
               <button
                 onClick={() => setChooseOpen(true)}
@@ -192,7 +201,6 @@ const { setSelectedLeagueId } = useSelectedLeague();
                 Select league
               </button>
 
-              {/* vertical divider */}
               <div className="w-px bg-white/50" />
 
               <button
@@ -209,7 +217,6 @@ const { setSelectedLeagueId } = useSelectedLeague();
               </button>
             </div>
 
-            {/* Log Match spans the full width if it wraps */}
             {ownsSelected && selectedLeagueId && (
               <button
                 onClick={() => setLogOpen(true)}
@@ -239,20 +246,29 @@ const { setSelectedLeagueId } = useSelectedLeague();
       <CreateLeagueModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-       onCreated={(league) => {
-  if (onLeagueCreated) onLeagueCreated(league);
-  setSelectedLeagueId(league.leagueId);       // <- provider persists & prevents flash
-  setCreateOpen(false);
-  if (onRefreshLeagues) void onRefreshLeagues();
-  void refreshMetrics();
-}}
+        onCreated={(league) => {
+          onLeagueCreated?.(league);
+          // cache a hint so header/badge can render instantly after reload
+          localStorage.setItem(
+            "selectedLeagueMeta",
+            JSON.stringify({
+              id: league.leagueId,
+              name: league.name,
+              visibility: league.visibility,
+            })
+          );
+          setSelectedLeagueId(league.leagueId);
+          setCreateOpen(false);
+          void onRefreshLeagues?.();
+          void refreshMetrics();
+        }}
       />
 
       <LogMatchModal
         open={logOpen}
         onClose={() => setLogOpen(false)}
         ownsSelected={ownsSelected}
-        onSubmit={handleSubmit} // (a1,a2,b1,b2,s1,s2)
+        onSubmit={handleSubmit}
         onUndo={ownsSelected ? handleUndo : undefined}
         players={players}
         loadingPlayers={loadingPlayers}
