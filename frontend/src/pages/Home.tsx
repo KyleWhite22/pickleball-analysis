@@ -18,7 +18,7 @@ export default function Home() {
   } = useLeagues(signedIn);
 
   // single source of truth for selected league
-  const { selectedLeagueId, setSelectedLeagueId } = useSelectedLeague();
+  const { selectedLeagueId } = useSelectedLeague();
 
   return (
     <div className="relative min-h-[100dvh] text-white space-y-6">
