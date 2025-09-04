@@ -50,23 +50,7 @@ const { version } = useMetrics();
                 : "—"
             }
           />
-          <Item
-            label="Most Clutch"
-            value={
-              data.mostClutch
-                ? `${data.mostClutch.name} (avg margin ${data.mostClutch.avgWinMargin.toFixed(1)})`
-                : "—"
-            }
-          />
-          <Item
-            label="Most Heated Rivalry"
-            value={
-              data.mostHeatedRivalry
-                ? `${data.mostHeatedRivalry.aName} vs ${data.mostHeatedRivalry.bName} (${data.mostHeatedRivalry.winsA}–${data.mostHeatedRivalry.winsB})`
-                : "—"
-            }
-          />
-          <Item
+            <Item
             label="Longest Win Streak"
             value={
               data.longestWinStreak
@@ -74,11 +58,7 @@ const { version } = useMetrics();
                 : "—"
             }
           />
-          <Item
-            label="Upset King"
-            value={data.upsetKing ? `${data.upsetKing.name} (${data.upsetKing.upsets})` : "—"}
-          />
-          <Item
+             <Item
             label="Dominator"
             value={
               data.dominator
@@ -87,17 +67,40 @@ const { version } = useMetrics();
             }
           />
           <Item
-            label="Most Matches Played"
-            value={data.ironman ? `${data.ironman.name} (${data.ironman.matches} matches)` : "—"}
+            label="Most Clutch"
+            value={
+              data.mostClutch
+                ? `${data.mostClutch.name} (avg margin ${data.mostClutch.avgWinMargin.toFixed(1)})`
+                : "—"
+            }
           />
+        
           <Item
+            label="Underdog"
+            value={data.upsetKing ? `${data.upsetKing.name} (${data.upsetKing.upsets} upsets)` : "—"}
+          />
+       
+               <Item
   label="Dynamic Duo"
   value={
     data.highestDynamicDuo
-      ? `${data.highestDynamicDuo.aName} & ${data.highestDynamicDuo.bName} (${data.highestDynamicDuo.wins} wins, ${data.highestDynamicDuo.games} games, ${(data.highestDynamicDuo.winPct*100).toFixed(0)}%)`
+      ? `${data.highestDynamicDuo.aName} & ${data.highestDynamicDuo.bName} (${data.highestDynamicDuo.wins} wins)`
       : "—"
   }
 />
+            <Item
+            label="Most Heated Rivalry"
+            value={
+              data.mostHeatedRivalry
+                ? `${data.mostHeatedRivalry.aName} vs ${data.mostHeatedRivalry.bName} (${data.mostHeatedRivalry.winsA}–${data.mostHeatedRivalry.winsB})`
+                : "—"
+            }
+          />
+          <Item
+            label="Most Matches Played"
+            value={data.ironman ? `${data.ironman.name} (${data.ironman.matches} matches)` : "—"}
+          />
+     
         </ul>
       )}
     </div>
