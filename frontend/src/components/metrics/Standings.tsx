@@ -50,7 +50,7 @@ export default function Standings() {
 
       {/* sort controls inline */}
       <div className="flex items-center gap-2 text-xs">
-        <span className="text-sm text-zinc-400">Sort by:</span>
+        <span className="text-sm text-zinc-400">Sort:</span>
         <SortChip
           label="Record"
           active={sortKey === "rec"}
