@@ -53,9 +53,6 @@ export default function PointDiffBars() {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
       <h2 className="mb-2 text-lg font-semibold">Point Differential</h2>
-      <p className="mb-3 text-xs text-zinc-400">
-        Green bars up (positive), red bars down (negative). Names sit below green, above red.
-      </p>
 
       {loading ? (
         <div className="h-64 rounded-xl border border-white/10 bg-white/5 animate-pulse" />

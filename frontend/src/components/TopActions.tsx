@@ -26,7 +26,6 @@ export default function TopActions({
   yourLeagues,
   publicLeagues,
   selectedLeagueId,
-  onSelectLeague,
   ownsSelected,
   onLeagueCreated,
   onRefreshLeagues,

@@ -108,7 +108,7 @@ const label = useCallback((props: PieLabelRenderProps) => {
 }, []);
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <h2 className="mb-2 text-lg font-semibold">Win Percentages</h2>
+      <h2 className="mb-2 text-lg font-semibold">Total Games Win Percentages</h2>
      
       {loading ? (
         <div className="h-64 rounded-xl border border-white/10 bg-white/5 animate-pulse" />
