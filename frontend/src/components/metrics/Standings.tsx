@@ -44,17 +44,30 @@ export default function Standings() {
   }, [data, sortKey]);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Leaderboard</h2>
+     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+    <div className="mb-2 flex items-center justify-between gap-3">
+      <h2 className="text-lg font-semibold">Leaderboard</h2>
 
-        {/* simple sort controls */}
-        <div className="flex items-center gap-1 text-xs">
-          <SortChip label="Record" active={sortKey === "rec"} onClick={() => setSortKey("rec")} />
-          <SortChip label="Win %" active={sortKey === "winpct"} onClick={() => setSortKey("winpct")} />
-          <SortChip label="Point Diff" active={sortKey === "diff"} onClick={() => setSortKey("diff")} />
-        </div>
+      {/* sort controls inline */}
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-sm text-zinc-400">Sort by:</span>
+        <SortChip
+          label="Record"
+          active={sortKey === "rec"}
+          onClick={() => setSortKey("rec")}
+        />
+        <SortChip
+          label="Win %"
+          active={sortKey === "winpct"}
+          onClick={() => setSortKey("winpct")}
+        />
+        <SortChip
+          label="Point Diff"
+          active={sortKey === "diff"}
+          onClick={() => setSortKey("diff")}
+        />
       </div>
+    </div>
 
       {/* Body */}
       {loading ? (
