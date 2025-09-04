@@ -1,20 +1,17 @@
-// src/components/metrics/Standings.tsx
 import { useMemo, useState } from "react";
 import { useMetrics } from "./MetricsProvider";
+import { SkeletonCard } from "../../ui/SkeletonCard";  // <-- import skeleton
 
 type SortKey = "default" | "rec" | "winpct" | "diff" | "name";
 
 export default function Standings() {
   const { standings, loading } = useMetrics();
 
-  // ✅ hooks at the top, never inside conditionals/after early returns
   const [sortKey, setSortKey] = useState<SortKey>("default");
-
   const data = Array.isArray(standings) ? standings : [];
 
   const sorted = useMemo(() => {
     if (sortKey === "default") return data;
-
     const withDiff = data.map((p) => ({
       ...p,
       _diff: (p.pointsFor ?? 0) - (p.pointsAgainst ?? 0),
@@ -46,7 +43,6 @@ export default function Standings() {
     }
   }, [data, sortKey]);
 
-  // Single return; swap content based on state
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -57,13 +53,12 @@ export default function Standings() {
           <SortChip label="Record" active={sortKey === "rec"} onClick={() => setSortKey("rec")} />
           <SortChip label="Win %" active={sortKey === "winpct"} onClick={() => setSortKey("winpct")} />
           <SortChip label="Point Diff" active={sortKey === "diff"} onClick={() => setSortKey("diff")} />
-         
         </div>
       </div>
 
       {/* Body */}
       {loading ? (
-        <p className="text-sm text-zinc-400">Loading…</p>
+        <SkeletonCard />   // ⬅️ show skeleton during load
       ) : !standings ? (
         <p className="text-sm text-zinc-400">Select a league</p>
       ) : standings.length === 0 ? (

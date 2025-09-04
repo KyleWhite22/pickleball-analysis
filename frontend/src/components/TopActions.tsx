@@ -10,6 +10,7 @@ import { usePlayers } from "../hooks/usePlayers";
 import { useAuthEmail } from "../hooks/useAuthEmail";
 import { useMetrics } from "./metrics/MetricsProvider";
 import type { MatchInputDoubles } from "../types/match";
+import { useSelectedLeague } from "../state/SelectedLeagueProvider";
 
 type Props = {
   yourLeagues: League[];
@@ -27,8 +28,8 @@ export default function TopActions({
   selectedLeagueId,
   onSelectLeague,
   ownsSelected,
-  onRefreshLeagues,
   onLeagueCreated,
+  onRefreshLeagues,
 }: Props) {
   const { signedIn } = useAuthEmail();
   const { refresh: refreshMetrics } = useMetrics();
@@ -38,6 +39,7 @@ export default function TopActions({
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [undoing, setUndoing] = useState(false);
+const { setSelectedLeagueId } = useSelectedLeague();
 
   // Track newly-created public leagues locally so labels are correct immediately
   const [knownPublicIds] = useState<Set<string>>(() => new Set());
@@ -66,7 +68,7 @@ export default function TopActions({
     [publicLeagues, ownedIds]
   );
 
-  const selected = useMemo(
+    const selected = useMemo(
     () =>
       selectedLeagueId
         ? [...yourLeagues, ...publicLeagues].find((l) => l.leagueId === selectedLeagueId) || null
@@ -74,10 +76,18 @@ export default function TopActions({
     [selectedLeagueId, yourLeagues, publicLeagues]
   );
 
+
   const isSelectedPublic = selected ? allPublicIds.has(selected.leagueId) : false;
+ const nameLabel = selected
+    ? selected.name
+    : selectedLeagueId
+      ? "Loading league…"       // we know an ID, lists haven’t hydrated yet
+      : "No league selected";   // truly nothing selected
+
 
   // Players for datalist in LogMatch modal
-  const { players, loading: loadingPlayers, setPlayers } = usePlayers(selectedLeagueId);
+  const { players, loading: loadingPlayers, setPlayers } =
+    usePlayers(selectedLeagueId);
 
   // ---- Doubles submit: (a1, a2) vs (b1, b2) with scores s1, s2 ----
   async function handleSubmit(
@@ -103,17 +113,15 @@ export default function TopActions({
       // create the match (owner-only)
       await createMatch(selectedLeagueId, payload as any);
 
-      // refresh datalist — but DO NOT block on errors (e.g., 403 on private/public visibility)
+      // refresh datalist — but DO NOT block on errors
       try {
         const pl = await listPlayers(selectedLeagueId);
         setPlayers(pl);
       } catch (e) {
-        // swallow — datalist can refresh next time, and we still refresh metrics below
         console.warn("listPlayers failed after submit (non-blocking):", e);
       }
     } finally {
-      // ALWAYS refresh tiles so UI updates even if listPlayers fails
-      await refreshMetrics();
+      await refreshMetrics(); // ALWAYS refresh tiles
       setSubmitting(false);
     }
   }
@@ -144,8 +152,8 @@ export default function TopActions({
         <div className="min-w-0">
           <div className="text-xs text-zinc-400">Viewing league</div>
           <div className="mt-0.5 flex flex-wrap items-center gap-2">
-            <div className="truncate text-xl font-semibold md:text-2xl">
-              {selected ? selected.name : "No league selected"}
+              <div className="truncate text-xl font-semibold md:text-2xl">
+              {nameLabel}
             </div>
 
             {selected && (
@@ -172,48 +180,47 @@ export default function TopActions({
             )}
           </div>
         </div>
-<div className="w-full md:w-auto">
-  <div className="flex w-full flex-row flex-wrap gap-2 items-stretch justify-end">
-    {/* Grouped neutral buttons */}
-    <div className="flex w-full sm:w-auto flex-row overflow-hidden rounded-lg border border-white/10">
-      <button
-        onClick={() => setChooseOpen(true)}
-        className="flex-1 min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
-      >
-        Select league
-      </button>
 
-      {/* vertical divider */}
-      <div className="w-px bg-white/50" />
+        {/* Right side actions */}
+        <div className="w-full md:w-auto">
+          <div className="flex w-full flex-row flex-wrap items-stretch justify-end gap-2">
+            {/* Grouped neutral buttons (always side-by-side) */}
+            <div className="flex w-full sm:w-auto flex-row overflow-hidden rounded-lg border border-white/10">
+              <button
+                onClick={() => setChooseOpen(true)}
+                className="flex-1 min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+              >
+                Select league
+              </button>
 
-      <button
-        onClick={async () => {
-          if (!signedIn) {
-            await signInWithRedirect();
-            return;
-          }
-          setCreateOpen(true);
-        }}
-        className="flex-1 min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
-      >
-        Create league
-      </button>
-    </div>
+              {/* vertical divider */}
+              <div className="w-px bg-white/50" />
 
-    {/* Log Match spans width if wrapped */}
-    {ownsSelected && selectedLeagueId && (
-      <button
-        onClick={() => setLogOpen(true)}
-        className="w-full sm:w-auto rounded-lg bg-mint px-4 py-2 text-sm font-semibold text-black hover:brightness-95"
-      >
-        Log a Match
-      </button>
-    )}
-  </div>
-</div>
+              <button
+                onClick={async () => {
+                  if (!signedIn) {
+                    await signInWithRedirect();
+                    return;
+                  }
+                  setCreateOpen(true);
+                }}
+                className="flex-1 min-w-[9rem] bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+              >
+                Create league
+              </button>
+            </div>
 
-        {/* Actions */}
-      
+            {/* Log Match spans the full width if it wraps */}
+            {ownsSelected && selectedLeagueId && (
+              <button
+                onClick={() => setLogOpen(true)}
+                className="w-full sm:w-auto rounded-lg bg-mint px-4 py-2 text-sm font-semibold text-black hover:brightness-95"
+              >
+                Log a Match
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* divider */}
@@ -226,22 +233,20 @@ export default function TopActions({
         yourLeagues={yourLeagues}
         publicLeagues={publicForChooser}
         selectedLeagueId={selectedLeagueId}
-        onSelect={onSelectLeague}
+        onSelect={setSelectedLeagueId}
         publicIds={allPublicIds}
       />
 
       <CreateLeagueModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={(league) => {
-          // 1) Optimistic local updates (instant UI)
-          onLeagueCreated?.(league);                 // add to yourLeagues immediately
-          onSelectLeague(league.leagueId);           // switch UI to it
-          localStorage.setItem("leagueId", league.leagueId);
-          setCreateOpen(false);
-          void onRefreshLeagues?.();
-          void refreshMetrics();
-        }}
+       onCreated={(league) => {
+  if (onLeagueCreated) onLeagueCreated(league);
+  setSelectedLeagueId(league.leagueId);       // <- provider persists & prevents flash
+  setCreateOpen(false);
+  if (onRefreshLeagues) void onRefreshLeagues();
+  void refreshMetrics();
+}}
       />
 
       <LogMatchModal
