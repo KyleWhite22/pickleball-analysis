@@ -1,5 +1,8 @@
 import { createContext, useContext, useMemo, useState } from "react";
 
+const DEFAULT_PUBLIC_ID =
+  (import.meta.env.VITE_DEFAULT_PUBLIC_LEAGUE_ID as string | undefined) || null;
+
 type Ctx = {
   selectedLeagueId: string | null;
   setSelectedLeagueId: (id: string | null) => void;
@@ -8,12 +11,17 @@ type Ctx = {
 const SelectedLeagueContext = createContext<Ctx | undefined>(undefined);
 
 export function SelectedLeagueProvider({ children }: { children: React.ReactNode }) {
-  // Hydrate synchronously from localStorage or URL param (?league=)
+  // Hydrate synchronously from URL or localStorage; then fall back to default public league
   const initial = (() => {
     const url = new URL(window.location.href);
     const fromUrl = url.searchParams.get("league");
     if (fromUrl) return fromUrl;
-    return localStorage.getItem("selectedLeagueId");
+
+    const fromStorage = localStorage.getItem("selectedLeagueId");
+    if (fromStorage) return fromStorage;
+
+    // Fallback: default public league (first visit, no storage)
+    return DEFAULT_PUBLIC_ID || null;
   })();
 
   const [selectedLeagueId, setSelectedLeagueIdState] = useState<string | null>(initial);
