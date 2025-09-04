@@ -22,7 +22,17 @@ export default function LeagueChooserModal({
 }: Props) {
   if (!open) return null;
 
-  function handleChoose(id: string) {
+  function handleChoose(id: string, league?: League) {
+    if (league) {
+      localStorage.setItem(
+        "selectedLeagueMeta",
+        JSON.stringify({
+          id: league.leagueId,
+          name: league.name,
+          visibility: league.visibility,
+        })
+      );
+    }
     onSelect(id);
     onClose();
   }
@@ -37,8 +47,7 @@ export default function LeagueChooserModal({
           role="button"
           tabIndex={0}
           aria-selected={isSelected}
-          onClick={() => handleChoose(league.leagueId)}
-          onKeyDown={(e) => {
+          onClick={() => handleChoose(league.leagueId, league)} onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               handleChoose(league.leagueId);
@@ -76,48 +85,48 @@ export default function LeagueChooserModal({
       </div>
     );
   }
-return createPortal(
-  <div className="fixed inset-0 z-[9999]">
-    {/* Backdrop */}
-    <div
-      className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-    />
-
-    {/* Centering + scrollable viewport */}
-    <div
-      className="absolute inset-0 z-[110] flex items-center justify-center p-4 overflow-y-auto"
-      onClick={onClose}
-    >
-      {/* Panel */}
+  return createPortal(
+    <div className="fixed inset-0 z-[9999]">
+      {/* Backdrop */}
       <div
-        className="w-full max-w-2xl rounded-2xl border border-white/10 bg-white/5 p-5 shadow-[0_10px_30px_rgba(0,0,0,.35)] max-h-[85dvh] overflow-y-auto"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Choose League"
-        onClick={(e) => e.stopPropagation()}
-        style={{ WebkitOverflowScrolling: "touch" }} // smooth iOS momentum scroll
-      >
-        <div className="mb-3 flex items-start justify-between">
-          <h3 className="text-lg font-semibold">Choose League to View</h3>
-          <button
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-sm text-zinc-300 hover:bg-white/10"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
+        className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
-        {/* Content */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <List title="Your Leagues" leagues={yourLeagues} />
-          <List title="Public Leagues" leagues={publicLeagues} />
+      {/* Centering + scrollable viewport */}
+      <div
+        className="absolute inset-0 z-[110] flex items-center justify-center p-4 overflow-y-auto"
+        onClick={onClose}
+      >
+        {/* Panel */}
+        <div
+          className="w-full max-w-2xl rounded-2xl border border-white/10 bg-white/5 p-5 shadow-[0_10px_30px_rgba(0,0,0,.35)] max-h-[85dvh] overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Choose League"
+          onClick={(e) => e.stopPropagation()}
+          style={{ WebkitOverflowScrolling: "touch" }} // smooth iOS momentum scroll
+        >
+          <div className="mb-3 flex items-start justify-between">
+            <h3 className="text-lg font-semibold">Choose League to View</h3>
+            <button
+              onClick={onClose}
+              className="rounded-lg px-2 py-1 text-sm text-zinc-300 hover:bg-white/10"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="grid gap-6 md:grid-cols-2">
+            <List title="Your Leagues" leagues={yourLeagues} />
+            <List title="Public Leagues" leagues={publicLeagues} />
+          </div>
         </div>
       </div>
-    </div>
-  </div>,
-  document.body
-);
+    </div>,
+    document.body
+  );
 
 }

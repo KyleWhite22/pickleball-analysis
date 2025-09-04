@@ -38,7 +38,7 @@ export default function TopActions({
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [undoing, setUndoing] = useState(false);
-const { setSelectedLeagueId } = useSelectedLeague();
+  const { setSelectedLeagueId } = useSelectedLeague();
 
   // Track newly-created public leagues locally so labels are correct immediately
   const [knownPublicIds] = useState<Set<string>>(() => new Set());
@@ -67,22 +67,30 @@ const { setSelectedLeagueId } = useSelectedLeague();
     [publicLeagues, ownedIds]
   );
 
-    const selected = useMemo(
+  const selected = useMemo(
     () =>
       selectedLeagueId
-        ? [...yourLeagues, ...publicLeagues].find((l) => l.leagueId === selectedLeagueId) || null
+        ? [...yourLeagues, ...publicLeagues].find(l => l.leagueId === selectedLeagueId) ?? null
         : null,
     [selectedLeagueId, yourLeagues, publicLeagues]
   );
+  const cachedHint = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("selectedLeagueMeta");
+      if (!raw) return null;
+      const v = JSON.parse(raw) as { id: string; name?: string; visibility?: "public" | "private" };
+      return v && v.id === selectedLeagueId ? v : null;
+    } catch { return null; }
+  }, [selectedLeagueId]);
 
+  const displayName =
+    selected?.name ?? cachedHint?.name ?? (selectedLeagueId ? "Loading…" : "No league selected");
 
-  const isSelectedPublic = selected ? allPublicIds.has(selected.leagueId) : false;
- const nameLabel = selected
-    ? selected.name
-    : selectedLeagueId
-      ? "Loading league…"       // we know an ID, lists haven’t hydrated yet
-      : "No league selected";   // truly nothing selected
-
+  const isSelectedPublic =
+    selected ? selected.visibility === "public"
+      : cachedHint ? cachedHint.visibility === "public"
+        : false;
+ 
 
   // Players for datalist in LogMatch modal
   const { players, loading: loadingPlayers, setPlayers } =
@@ -151,11 +159,11 @@ const { setSelectedLeagueId } = useSelectedLeague();
         <div className="min-w-0">
           <div className="text-xs text-zinc-400">Viewing league</div>
           <div className="mt-0.5 flex flex-wrap items-center gap-2">
-              <div className="truncate text-xl font-semibold md:text-2xl">
-              {nameLabel}
+            <div className="truncate text-xl font-semibold md:text-2xl">
+              {displayName}
             </div>
 
-            {selected && (
+            {selectedLeagueId && (
               <span
                 className={[
                   "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
@@ -239,13 +247,18 @@ const { setSelectedLeagueId } = useSelectedLeague();
       <CreateLeagueModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-       onCreated={(league) => {
-  if (onLeagueCreated) onLeagueCreated(league);
-  setSelectedLeagueId(league.leagueId);       // <- provider persists & prevents flash
-  setCreateOpen(false);
-  if (onRefreshLeagues) void onRefreshLeagues();
-  void refreshMetrics();
-}}
+        onCreated={(league) => {
+          onLeagueCreated?.(league);
+          // cache the hint
+          localStorage.setItem(
+            "selectedLeagueMeta",
+            JSON.stringify({ id: league.leagueId, name: league.name, visibility: league.visibility })
+          );
+          setSelectedLeagueId(league.leagueId); // your provider setter
+          setCreateOpen(false);
+          void onRefreshLeagues?.();
+          void refreshMetrics();
+        }}
       />
 
       <LogMatchModal
