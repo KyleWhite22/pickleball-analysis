@@ -74,11 +74,6 @@ const { version } = useMetrics();
                 : "—"
             }
           />
-        
-          <Item
-            label="Underdog"
-            value={data.upsetKing ? `${data.upsetKing.name} (${data.upsetKing.upsets} upsets)` : "—"}
-          />
        
                <Item
   label="Dynamic Duo"
