@@ -51,13 +51,13 @@ export default function AppShell() {
     try {
       await signOut({ global: true });
     } catch {
-      try { await signOut({ global: false }); } catch {}
+      try { await signOut({ global: false }); } catch { }
     } finally {
       // Clear selected league immediately so UI doesn’t show stale data
       setSelectedLeagueId(null);
       localStorage.removeItem("selectedLeagueId");
       localStorage.removeItem("selectedLeagueMeta");
-      try { window.history.replaceState(null, "", location.pathname); } catch {}
+      try { window.history.replaceState(null, "", location.pathname); } catch { }
 
       // If a MetricsProvider exists on this route, force it to clear
       await metrics?.refresh?.();
@@ -121,11 +121,16 @@ export default function AppShell() {
       </header>
 
       {/* Main */}
-      <main className="relative mx-auto max-w-6xl px-4 pt-2 md:pt-4 pb-6 md:pb-8">
+      <main className="relative mx-auto max-w-6xl px-4 pt-2 md:pt-4 pb-6 md:pb-8 flex-1">
         <div>
           <Outlet />
         </div>
       </main>
+      <footer className="mt-auto ">
+        <div className="mx-auto max-w-6xl px-4 py-4 text-center text-zinc-400 text-sm">
+          Created by Kyle White 2025
+        </div>
+      </footer>
     </div>
   );
 }
