@@ -158,7 +158,6 @@ export default function TopActions({
       {/* Header: Selected league + badges */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
-          <div className="text-xs text-zinc-400">Viewing league</div>
           <div className="mt-0.5 flex flex-wrap items-center gap-2">
             <div className="truncate text-xl font-semibold md:text-2xl">
               {displayName}
@@ -228,9 +227,6 @@ export default function TopActions({
           </div>
         </div>
       </div>
-
-      {/* divider */}
-      <div className="mt-4 h-px w-full bg-white/10" />
 
       {/* Modals */}
       <LeagueChooserModal
