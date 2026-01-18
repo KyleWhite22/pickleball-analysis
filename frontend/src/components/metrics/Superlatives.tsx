@@ -91,10 +91,7 @@ const { version } = useMetrics();
                 : "—"
             }
           />
-          <Item
-            label="Most Matches Played"
-            value={data.ironman ? `${data.ironman.name} (${data.ironman.matches} matches)` : "—"}
-          />
+        
      
         </ul>
       )}
