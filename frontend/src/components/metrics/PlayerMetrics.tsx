@@ -19,6 +19,7 @@ type MaybeExtendedStanding = {
   pointsFor: number;
   pointsAgainst: number;
   elo?: number;
+  photoUrl? : string;
 };
 
 /** Build a per-player longest win streak map from doubles matches */
@@ -76,6 +77,7 @@ export default function PlayerMetrics({ leagueId }: { leagueId: string | null })
   const [partners, setPartners] = useState<BestPartnersMap>({});
   const [elo, setElo] = useState<Record<string, number>>({});
   const [streaks, setStreaks] = useState<Record<string, number>>({});
+const [photoOverrides, setPhotoOverrides] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let alive = true;
@@ -160,6 +162,25 @@ export default function PlayerMetrics({ leagueId }: { leagueId: string | null })
   const diff = current ? current.pointsFor - current.pointsAgainst : 0;
   const diffSigned = diff > 0 ? `+${diff}` : `${diff}`; // includes zero as "0"
   const longest = current ? streaks[current.playerId] ?? 0 : 0;
+const handlePhotoChange = async (file: File) => {
+  if (!current) return;
+
+  const formData = new FormData();
+  formData.append("photo", file);
+
+  const res = await fetch(`/players/${current.playerId}/photo`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const { photoUrl } = await res.json();
+
+  // instant UI update
+  setPhotoOverrides((prev) => ({
+    ...prev,
+    [current.playerId]: photoUrl,
+  }));
+};
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
@@ -200,16 +221,31 @@ export default function PlayerMetrics({ leagueId }: { leagueId: string | null })
         <p className="text-sm text-zinc-400">No players yet.</p>
       ) : current ? (
         <div className="space-y-4">
-          <div className="flex items-baseline justify-between">
-            <div className="min-w-0 flex items-center gap-2">
-              <div className="truncate text-xl font-semibold">{current.name}</div>
-              {gradeMap[current.playerId] && (
-                <span className="text-sm text-zinc-400">
-                  Rank: <span className="font-semibold text-white">{gradeMap[current.playerId].grade}</span>
-                </span>
-              )}
-            </div>
-          </div>
+         <div className="flex items-baseline justify-between">
+  <div className="min-w-0 flex items-center gap-3">
+    <ProfilePic
+  photoUrl={photoOverrides[current.playerId] ?? current.photoUrl}
+  onChange={handlePhotoChange}
+/>
+
+
+    <div className="min-w-0">
+      <div className="truncate text-xl font-semibold">
+        {current.name}
+      </div>
+
+      {gradeMap[current.playerId] && (
+        <span className="text-sm text-zinc-400">
+          Rank:{" "}
+          <span className="font-semibold text-white">
+            {gradeMap[current.playerId].grade}
+          </span>
+        </span>
+      )}
+    </div>
+  </div>
+</div>
+
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <StatBox
@@ -240,6 +276,37 @@ export default function PlayerMetrics({ leagueId }: { leagueId: string | null })
     </div>
   );
 }
+function ProfilePic({
+  photoUrl,
+  onChange,
+}: {
+  photoUrl?: string;
+  onChange: (file: File) => void;
+}) {
+  return (
+    <label className="relative h-16 w-16 shrink-0 cursor-pointer">
+      <img
+        src={photoUrl || "/default-avatar.png"}
+        alt="Profile"
+        className="h-16 w-16 rounded-full object-cover border border-white/10"
+      />
+      <input
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files?.[0]) {
+            onChange(e.target.files[0]);
+          }
+        }}
+      />
+      <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center text-xs">
+        Edit
+      </div>
+    </label>
+  );
+}
+
 
 function StatBox({ label, value }: { label: string; value: string }) {
   return (
