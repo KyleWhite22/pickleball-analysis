@@ -84,6 +84,13 @@ package:
 
 functions:
   # ---------- GET (PUBLIC; some may check auth in-Lambda) ----------
+  uploadPlayerPhoto:
+    handler: src/player_photo_upload.handler
+    events:
+      - httpApi:
+          path: /players/{id}/photo
+          method: POST
+          authorizer: jwtAuth
   listLeagues:
     handler: src/leagues_list.handler
     events:

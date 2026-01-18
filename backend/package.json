@@ -8,11 +8,14 @@
   },
   "dependencies": {
     "@aws-amplify/ui-react": "^6.12.0",
-    "@aws-sdk/client-dynamodb": "^3.629.0",
+    "@aws-sdk/client-dynamodb": "^3.970.0",
+    "@aws-sdk/client-s3": "^3.971.0",
     "@aws-sdk/lib-dynamodb": "^3.629.0",
     "aws-amplify": "^6.15.5",
     "aws-sdk": "^2.1602.0",
-    "jose": "^4.15.9"
+    "jose": "^4.15.9",
+    "lambda-multipart-parser": "^1.0.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "esbuild": "^0.21.5",
